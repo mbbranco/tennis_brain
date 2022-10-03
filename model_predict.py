@@ -16,6 +16,7 @@ from sklearn.tree import DecisionTreeClassifier
 
 import pandas as pd
 import numpy as np
+from datetime import date
 
 from data_prep import data_cleaner
 
@@ -46,7 +47,8 @@ class TennisPredModel():
         self.all_matches = matches
 
     def prep_features(self):
-        self.all_matches['Old'] = (pd.to_datetime('today') - self.all_matches['Date']).dt.days
+        self.all_matches['Date'] = pd.to_datetime(self.all_matches['Date']).dt.date
+        self.all_matches['Old'] = (date.today() - self.all_matches['Date']).dt.days
         type_dummy = pd.get_dummies(self.all_matches['Type'])
 
         opponents =  pd.DataFrame(np.where((self.all_matches['Winner']==self.name_p1)|(self.all_matches['Winner']==self.name_p2),self.all_matches['Loser'],self.all_matches['Winner']),columns=['Opponent'])
@@ -73,6 +75,7 @@ class TennisPredModel():
             return X,y
         
         X_to_predict,y_to_predict = create_feature_target_var(match_to_predict)
+
         X,y = create_feature_target_var(matches_ready)
 
         # Create training and testing sets
@@ -143,7 +146,7 @@ class TennisPredModel():
 
         model_selected = dict_classifiers[name]
         print(f'Model Selected: {best_model}')
-        return model_selected
+        return model_selected,best_model,preci,recall
 
     def predictive_model_final(self,model,X_train,y_train,X_test,y_test):
     
@@ -159,33 +162,36 @@ class TennisPredModel():
 
         return y_pred
 
+def run_predictor(name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_points,tournament_phase,tournament_surface):
+    tennis_clean = data_cleaner() 
+    tc = TennisPredModel()
+    tc.build_data_model(tennis_clean,name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_points,tournament_phase,tournament_surface)
+    tc.prep_features()
+    X, y, X_train, X_test, y_train, y_test, X_to_predict, y_to_predict = tc.prep_model()
+
+    model_selected,model_name,preci,recall = tc.pick_best_model(X_train, y_train, X_test, y_test)
+    
+    result = tc.predictive_model_final(model_selected,X,y,X_to_predict,y_to_predict)
+
+    if result == 1:
+        winner_name = tc.name_p1
+        print(f'{tc.name_p1} is going to WIN the match against {tc.name_p2}!')
+    else:
+        winner_name = tc.name_p2
+
+        print(f'{tc.name_p1} is going to LOSE the match against {tc.name_p2}!')
+
+    return winner_name,model_name,preci,recall
 
 # Run app
 if __name__=='__main__':
     name_p1,rank_p1 = 'Rublev A.',10
     name_p2,rank_p2 = 'Ruud C.',12
 
-    tournament_date = '2022-07-24'
+    tournament_date = date(2022,7,24)
     tournament_points = 500
     tournament_phase = 7
     tournament_surface = 'Outdoor_Clay'
 
-    tournament_date = pd.to_datetime(tournament_date,format='%Y-%m-%d')
-
-    tennis_clean, players = data_cleaner() 
-    tc = TennisPredModel()
-    tc.build_data_model(tennis_clean,name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_points,tournament_phase,tournament_surface)
-    tc.prep_features()
-    X, y, X_train, X_test, y_train, y_test, X_to_predict, y_to_predict = tc.prep_model()
-    best_model = tc.pick_best_model(X_train, y_train, X_test, y_test)
-    
-    result = tc.predictive_model_final(best_model,X,y,X_to_predict,y_to_predict)
-
-    print(tc.match_to_predict)
-    print()
-    if result == 1:
-        print(f'{tc.name_p1} is going to WIN the match against {tc.name_p2}!')
-    else:
-        print(f'{tc.name_p1} is going to LOSE the match against {tc.name_p2}!')
-
+    run_predictor(name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_points,tournament_phase,tournament_surface)
 

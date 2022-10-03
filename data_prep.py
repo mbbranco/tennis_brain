@@ -19,8 +19,8 @@ def data_cleaner():
     series_ranking = pd.DataFrame.from_dict(series_ranking_dict,orient='index',columns=['SeriesPoints']).reset_index().rename(columns={'index': 'Series'})
     tennis_clean = tennis_clean.merge(series_ranking,on='Series',how='inner')
 
-    rounds_ranking = {'1st Round':1,'2nd Round':2,'3rd Round':3,'4th Round':4,'Quarterfinals':5,'Semifinals':6,'The Final':7,'Round Robin':3}
-    rounds_ranking = pd.DataFrame.from_dict(rounds_ranking,orient='index',columns=['RoundDraw']).reset_index().rename(columns={'index': 'Round'})
+    rounds_ranking_dict = {'1st Round':1,'2nd Round':2,'3rd Round':3,'4th Round':4,'Quarterfinals':5,'Semifinals':6,'The Final':7,'Round Robin':3}
+    rounds_ranking = pd.DataFrame.from_dict(rounds_ranking_dict,orient='index',columns=['RoundDraw']).reset_index().rename(columns={'index': 'Round'})
 
     tennis_clean = tennis_clean.merge(rounds_ranking,on='Round',how='inner')
     tennis_clean['Type'] = tennis_clean['Court'] +"_"+ tennis_clean['Surface']
@@ -39,15 +39,34 @@ def data_cleaner():
 
     tennis_clean['QualityWin'] = tennis_clean['Wsets']-tennis['Lsets']
     tennis_clean['QualityWin'] = tennis_clean['QualityWin'].fillna(1)
-
-    winners = set(tennis_clean['Winner'].drop_duplicates())
-    losers = set(tennis_clean['Loser'].drop_duplicates())
-
-    players = sorted(list(winners.union(losers)))
     tennis_clean['Date'] = tennis_clean['Date'].dt.date
 
-    return tennis_clean, players
+    return tennis_clean
 
+def get_more_info(df):
+    winners = set(df['Winner'].drop_duplicates())
+    losers = set(df['Loser'].drop_duplicates())
+
+    players = sorted(list(winners.union(losers)))
+
+    tournaments = df[df['Year']==2021]
+    tournaments = tournaments[['Tournament','SeriesPoints','Surface']].drop_duplicates().sort_values(by=['SeriesPoints','Tournament','Surface'],ascending=[False,True,False])
+    rounds = sorted(list(set(df['RoundDraw'].drop_duplicates())))
+    surface_series = list(zip(tournaments['Surface'],tournaments['SeriesPoints']))
+    tournaments_dict = dict(zip(tournaments['Tournament'], surface_series))
+    return players, tournaments_dict, rounds
 
 if __name__=='__main__':
-    df,players_list = data_cleaner()
+    df = data_cleaner()
+    players_list,tournaments_list,rounds = get_more_info(df)
+    print(tournaments_list)
+    print(tournaments_list.keys())
+    tournament_surface = tournaments_list['French Open'][1]
+    print(tournament_surface)
+    df_aux = df[df['Winner']=='Federer R.']    
+    # df_aux = df_aux.sort_values(by='Date',ascending=False)
+    print(df_aux.head(3))
+    # print(df_aux['WRank'].iloc[0])
+    print(df_aux['Date'].max())
+    print(df_aux['WRank'].loc[df_aux['Date'] == df_aux['Date'].max()].iloc[0])
+

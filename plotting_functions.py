@@ -49,12 +49,15 @@ def rank_evol(df,name_p1,name_p2):
     df_p2['Rank'] = np.where((df_p2['Winner']==name_p2),df_p2['WRank'],df_p2['LRank'])
 
     df_both = pd.concat([df_p1,df_p2])
+    
+    p1_last_rank = df_p1['Rank'].loc[df_p1['Date'] == df_p1['Date'].max()].iloc[0]
+    p2_last_rank = df_p2['Rank'].loc[df_p2['Date'] == df_p2['Date'].max()].iloc[0]
 
     df_both = df_both.sort_values(by='Date')
     plot = px.line(data_frame=df_both,x='Date',y='Rank',color='MainPlayer',title='Rank Evolution')
     plot.update_traces(mode="markers+lines", hovertemplate=None)
     plot.update_layout(hovermode="x")
-    return plot
+    return plot,p1_last_rank,p2_last_rank
 
 def historical_h2h(df,name_p1,name_p2):
     p1 = (df['H2H'].str.contains(name_p1))
