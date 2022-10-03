@@ -44,6 +44,7 @@ def data_cleaner():
     losers = set(tennis_clean['Loser'].drop_duplicates())
 
     players = sorted(list(winners.union(losers)))
+    tennis_clean['Date'] = tennis_clean['Date'].dt.date
 
     return tennis_clean, players
 

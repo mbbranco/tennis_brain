@@ -20,7 +20,6 @@ def win_loss_ratio(df,name_player):
 
 def tournament_performance(df,name_p1):
     df_p1 = df[(df['H2H'].str.contains(name_p1))].copy()
-    df_p1['Year'] = df_p1['Date'].dt.year
     df_p1 = df_p1.groupby(['Year','Tournament','SeriesPoints','Surface','Winner']).agg({'RoundDraw':'max','Date':'min'}).reset_index()
     df_p1 = df_p1.sort_values(by='Date')
     df_p1['FinalWinner'] = np.where((df_p1['RoundDraw']==7)&(df_p1['Winner']==name_p1),'Winner','')
@@ -30,7 +29,7 @@ def tournament_performance(df,name_p1):
     plot = px.bar(data_frame=df_p1,x='Date',y='RoundDraw',color='Surface',title=f"Tournament Performance for {name_p1}",text='FinalWinner',\
             hover_data={'Tournament':True,'SeriesPoints':True,'Winner':True},color_discrete_map=color_mapping)
 
-    plot.update_xaxes(type='category')  
+    plot.update_xaxes(type='category')
     plot.update_xaxes(categoryorder='category ascending') 
     plot.add_hline(y=7, line_width=3, line_dash="dash", line_color="gold")
     
@@ -70,13 +69,15 @@ def historical_h2h(df,name_p1,name_p2):
 
     plot = px.bar(df,x='Surface',color='Winner',text='Tournament',hover_data={'SeriesPoints':True,'RoundDraw':True},title='H2H Match Winners',color_discrete_map=color_mapping)
 
+    df = df[['Date','Tournament','Court','Surface','Winner','WRank','Loser','LRank','Wsets','Lsets','SeriesPoints','RoundDraw']]
+
     return plot, df, text
 
 
-if __name__=='__main__':
-    # df,players_list = data_cleaner()
-    # p1 = 'Federer R.'
-    # p2 = 'Nadal R.'
+# if __name__=='__main__':
+#     df,players_list = data_cleaner()
+#     p1 = 'Federer R.'
+#     p2 = 'Nadal R.'
 
-    # p = tournament_performance(df,p1)
-    # p.show()
+#     p = tournament_performance(df,p1)
+#     p.show()

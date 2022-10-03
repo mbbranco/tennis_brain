@@ -1,0 +1,19 @@
+ 
+ 
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+
+#p1_dd .Select, .Select div, .Select input,.Select span { 
+   /*background: #yourcolor  to change the background color of the options*/
+   color: black  /*to change the color of the options */
+}
+
+ 
+#p2_dd .Select, .Select div, .Select input,.Select span { 
+    /*background: #yourcolor  to change the background color of the options*/
+    color: black  /*to change the color of the options */
+ }
+
+ /*@font-face {
+   font-family: 'Roboto', sans-serif;
+ }
+ */
