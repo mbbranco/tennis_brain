@@ -22,6 +22,8 @@ players_list, tourn_dict, rounds_list = get_more_info(df)
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 server = app.server
 
+app._favicon = (r"tennis_logo.ico")
+app.title = 'Tennis Brain'
 
 logo = html.Div([
     html.Img(src=get_asset_url('tennis_logo.png'),width=50,height=50)
