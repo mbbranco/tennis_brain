@@ -90,23 +90,23 @@ class TennisPredModel():
 
         # Compute accuracy
         accuracy = model.score(X_test,y_test)
-        print(f'Accuracy: {accuracy:.0%}')
+        # print(f'Accuracy: {accuracy:.0%}')
 
         # Predict the labels of the test set
         y_pred = model.predict(X_test)
 
         precision = precision_score(y_test,y_pred)
         recall = recall_score(y_test,y_pred)
-        print(f'Precision: {precision:.0%}')
-        print(f'Recall: {recall:.0%}')
+        # print(f'Precision: {precision:.0%}')
+        # print(f'Recall: {recall:.0%}')
 
         # Generate the probabilities
         y_pred_prob = model.predict_proba(X_test)[:, 1]
 
         auc = roc_auc_score(y_test, y_pred_prob)
         f1_score_val = f1_score(y_test,y_pred)
-        print(f'AUC: {auc:.0%}')
-        print(f'F1 Score: {f1_score_val:.0%}')
+        # print(f'AUC: {auc:.0%}')
+        # print(f'F1 Score: {f1_score_val:.0%}')
 
         # # Calculate the roc metrics
         # fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob)
@@ -138,14 +138,14 @@ class TennisPredModel():
             preci = scores[1]
             recall = scores[2]
             score = preci * recall
-            print(f'{name} score is {score}')
+            # print(f'{name} score is {score}')
             if score >= best_score:
                 best_score = score
                 best_model = name
-            print(f'Current Best model {best_model}')
+            # print(f'Current Best model {best_model}')
 
         model_selected = dict_classifiers[name]
-        print(f'Model Selected: {best_model}')
+        # print(f'Model Selected: {best_model}')
         return model_selected,best_model,preci,recall
 
     def predictive_model_final(self,model,X_train,y_train,X_test,y_test):
@@ -183,15 +183,24 @@ def run_predictor(name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_poi
 
     return winner_name,model_name,preci,recall
 
+def run_predictor_tournament(name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_points,tournament_surface):
+    data = []
+    for t_round in range(1,8):
+       winner_name,model_name,preci,recall = run_predictor(name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_points,t_round,tournament_surface)
+       data.append([t_round, winner_name,model_name,preci,recall])
+    df = pd.DataFrame(data,columns=['Round','Winner','Model','Precision','Recall'])
+    
+    return df
+
 # Run app
 if __name__=='__main__':
-    name_p1,rank_p1 = 'Rublev A.',10
-    name_p2,rank_p2 = 'Ruud C.',12
+    name_p1,rank_p1 = 'Nadal R.',5
+    name_p2,rank_p2 = 'Federer R.',3
 
-    tournament_date = date(2022,7,24)
-    tournament_points = 500
+    tournament_date = date(2023,7,24)
+    tournament_points = 2000
     tournament_phase = 7
-    tournament_surface = 'Outdoor_Clay'
-
-    run_predictor(name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_points,tournament_phase,tournament_surface)
-
+    tournament_surface = 'Clay'
+    # run_predictor(name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_points,tournament_phase,tournament_surface)
+    df = run_predictor_tournament(name_p1,name_p2,rank_p1,rank_p2,tournament_date,tournament_points,tournament_surface)
+    print(df)

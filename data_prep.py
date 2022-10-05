@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from datetime import timedelta
 
 def generate_H2H(row):
     h2h = [row['Loser'],row['Winner']]
@@ -31,7 +32,6 @@ def data_cleaner():
     tennis_clean['Year'] = tennis_clean['Date'].dt.year
 
     tennis_clean['H2H'] = tennis_clean.apply(generate_H2H, axis=1)
-    tennis_clean[tennis_clean['H2H']=='Djokovic N._Nadal R.']
 
     worst_rank = max(tennis_clean['LRank'].max(),tennis_clean['WRank'].max())
     tennis_clean['LRank'] = tennis_clean['LRank'].fillna(worst_rank)
@@ -51,9 +51,16 @@ def get_more_info(df):
 
     tournaments = df[df['Year']==2021]
     tournaments = tournaments[['Tournament','SeriesPoints','Surface']].drop_duplicates().sort_values(by=['SeriesPoints','Tournament','Surface'],ascending=[False,True,False])
+    tournaments_max_date = df.groupby(['Tournament'])['Date'].max().reset_index()
+    tournaments_max_date['NextDate'] = tournaments_max_date['Date'] + timedelta(days=365)
+
+    tournaments_full = tournaments.merge(tournaments_max_date,on='Tournament',how='inner')
+
     rounds = sorted(list(set(df['RoundDraw'].drop_duplicates())))
-    surface_series = list(zip(tournaments['Surface'],tournaments['SeriesPoints']))
-    tournaments_dict = dict(zip(tournaments['Tournament'], surface_series))
+    tournaments_dict= {}
+    for i,row in tournaments_full.iterrows():
+        tournaments_dict[row['Tournament']] = [row['Surface'],row['SeriesPoints'],row['NextDate']]
+
     return players, tournaments_dict, rounds
 
 if __name__=='__main__':

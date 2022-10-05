@@ -57,6 +57,8 @@ def rank_evol(df,name_p1,name_p2):
     plot = px.line(data_frame=df_both,x='Date',y='Rank',color='MainPlayer',title='Rank Evolution')
     plot.update_traces(mode="markers+lines", hovertemplate=None)
     plot.update_layout(hovermode="x")
+    plot.update_yaxes(autorange="reversed")
+
     return plot,p1_last_rank,p2_last_rank
 
 def historical_h2h(df,name_p1,name_p2):
@@ -76,7 +78,12 @@ def historical_h2h(df,name_p1,name_p2):
 
     return plot, df, text
 
-
+def tournament_predictor(df):
+    df['Aux'] = 1
+    plot = px.bar(data_frame=df,x='Round',y='Aux',color='Winner',title=f"Tournament Predictor",\
+            hover_data={'Model':True,'Precision':True,'Recall':True})
+    
+    return plot
 # if __name__=='__main__':
 #     df,players_list = data_cleaner()
 #     p1 = 'Federer R.'
