@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from datetime import timedelta
+import glob
 
 def generate_H2H(row):
     h2h = [row['Loser'],row['Winner']]
@@ -9,35 +10,33 @@ def generate_H2H(row):
     return str(h2h[0])+ "_"+ str(h2h[1])
 
 def data_cleaner():
-
-    tennis = pd.read_csv('tennis_data.csv',low_memory=False)
+    tennis = pd.DataFrame()
     columns_to_keep = ['ATP','Date','Round','Tournament','Series','Court','Surface','Winner','Loser','WRank','LRank','Wsets','Lsets','Best of']
 
-    tennis_clean = tennis[columns_to_keep]
+    data_folder = glob.glob("data/*.csv")
+    for file in data_folder:
+        t = pd.read_csv(file,low_memory=False)
+        t = t[columns_to_keep]
+        tennis = pd.concat([tennis,t])
+
+    tennis_clean = tennis.dropna()
     tennis_clean = tennis_clean[~tennis_clean['Series'].isin(['International','International Gold','Masters','Masters Cup'])]
 
-    series_ranking_dict = {'ATP250':250,'ATP500':500,'Masters1000':1000,'Grand Slam':2000}
-    series_ranking = pd.DataFrame.from_dict(series_ranking_dict,orient='index',columns=['SeriesPoints']).reset_index().rename(columns={'index': 'Series'})
-    tennis_clean = tennis_clean.merge(series_ranking,on='Series',how='inner')
+    series_ranking_dict = {'ATP250':250,'ATP500':500,'Masters 1000':1000,'Grand Slam':2000}
+    tennis_clean['SeriesPoints'] = tennis_clean['Series'].map(series_ranking_dict)
 
     rounds_ranking_dict = {'1st Round':1,'2nd Round':2,'3rd Round':3,'4th Round':4,'Quarterfinals':5,'Semifinals':6,'The Final':7,'Round Robin':3}
-    rounds_ranking = pd.DataFrame.from_dict(rounds_ranking_dict,orient='index',columns=['RoundDraw']).reset_index().rename(columns={'index': 'Round'})
+    tennis_clean['RoundDraw'] = tennis_clean['Round'].map(rounds_ranking_dict)
 
-    tennis_clean = tennis_clean.merge(rounds_ranking,on='Round',how='inner')
     tennis_clean['Type'] = tennis_clean['Court'] +"_"+ tennis_clean['Surface']
     tennis_clean = tennis_clean.drop(['Series','Round'],axis=1)
-    # tennis_clean = tennis_clean.drop(['Series','Round','Surface','Court'],axis=1)
 
     tennis_clean['Date'] = pd.to_datetime(tennis_clean['Date'],format='%Y-%m-%d')
     tennis_clean['Year'] = tennis_clean['Date'].dt.year
 
     tennis_clean['H2H'] = tennis_clean.apply(generate_H2H, axis=1)
 
-    worst_rank = max(tennis_clean['LRank'].max(),tennis_clean['WRank'].max())
-    tennis_clean['LRank'] = tennis_clean['LRank'].fillna(worst_rank)
-    tennis_clean['WRank'] = tennis_clean['WRank'].fillna(worst_rank)
-
-    tennis_clean['QualityWin'] = tennis_clean['Wsets']-tennis['Lsets']
+    tennis_clean['QualityWin'] = tennis_clean['Wsets']-tennis_clean['Lsets']
     tennis_clean['QualityWin'] = tennis_clean['QualityWin'].fillna(1)
     tennis_clean['Date'] = tennis_clean['Date'].dt.date
 
@@ -49,7 +48,7 @@ def get_more_info(df):
 
     players = sorted(list(winners.union(losers)))
 
-    tournaments = df[df['Year']==2021]
+    tournaments = df[df['Year']>=2020]
     tournaments = tournaments[['Tournament','SeriesPoints','Surface']].drop_duplicates().sort_values(by=['SeriesPoints','Tournament','Surface'],ascending=[False,True,False])
     tournaments_max_date = df.groupby(['Tournament'])['Date'].max().reset_index()
     tournaments_max_date['NextDate'] = tournaments_max_date['Date'] + timedelta(days=365)
