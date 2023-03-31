@@ -37,8 +37,8 @@ def get_updated_ranking():
     for i in range(len(rank_start)):
         rank_range.append(f'{rank_start[i]}-{rank_finish[i]}')
 
-    today_date = date.today()
-    date_ranking = today_date - timedelta(days=today_date.weekday())
+    # today_date = date.today()
+    # date_ranking = today_date - timedelta(days=today_date.weekday())
 
     opener = urllib.request.build_opener()
     opener.addheaders = [('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1941.0 Safari/537.36')]
@@ -48,7 +48,8 @@ def get_updated_ranking():
     links_ranking = []
     rank_range = rank_range[0:2]
     for r in rank_range:
-        url = f'https://www.atptour.com/en/rankings/singles?rankRange={r}&rankDate={date_ranking}'
+        url = f'https://www.atptour.com/en/rankings/singles?rankRange={r}'
+        #url = f'https://www.atptour.com/en/rankings/singles?rankRange={r}&rankDate={date_ranking}'
         info = opener.open(url).read()
         soup = BeautifulSoup(info, "html.parser")
         players, links = scrape_it(soup)
@@ -74,5 +75,6 @@ def scrape_it(soup):
 
 if __name__=='__main__':
     # get_updated_ranking()
-    p1_rank,p2_rank,p1_link,p2_link = get_current_ranking_photo('Federer R.','Nadal R.')
+    p1_rank,p2_rank,p1_link,p2_link = get_current_ranking_photo('Alcaraz C.','Nadal R.')
     print(p1_rank,p2_rank)
+    print(p1_link,p2_link)
