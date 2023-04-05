@@ -20,7 +20,7 @@ def win_loss_ratio(df,player_id,player_name):
     return plot
 
 def tournament_performance(df,player_id,player_name):
-    df_p1 = df[(df['winner_id']==player_id) | (df['loser_id']==player_id)].copy()
+    df_p1 = df[(df['winner_id']==player_id) | (df['loser_id']==player_id)].copy().reset_index()
     df_p1['result'] = np.where(df_p1['winner_id']==player_id,1,0)
 
     idx = df_p1.groupby(['tourney_year','tourney_name','tourney_points','surface'])['round_level'].idxmin()
@@ -31,6 +31,7 @@ def tournament_performance(df,player_id,player_name):
     last_rounds['tourney_winner'] = np.where((last_rounds['round_level']==0)&(last_rounds['winner_id']!=player_id),'Runner-Up',last_rounds['tourney_winner'])
 
     last_rounds['round_level'] = max_round - last_rounds['round_level']
+
     color_mapping = {'Clay':'#FFA15A','Grass':'#00CC96','Hard':'#636EFA','Carpet':'#AB63FA'}
     plot = px.bar(data_frame=last_rounds,x='tourney_date',y='round_level',color='surface',title=f"Tournament Performance for {player_name}",text='tourney_winner',\
             hover_data={'tourney_name':True,'tourney_points':True,'winner_name':True},color_discrete_map=color_mapping)
@@ -45,11 +46,14 @@ def tournament_performance(df,player_id,player_name):
 def rank_evol(rankings,p1_id,p2_id):
     df_rank = rankings[(rankings['player']==p1_id)|(rankings['player']==p2_id)].copy()
     df_rank = df_rank.sort_values(by='ranking_date')
+    df_aux = df_rank.groupby(['player'])['ranking_date'].min().reset_index()
+    start_date = df_aux['ranking_date'].max()
+    df_rank = df_rank[df_rank['ranking_date']>=start_date]
     plot = px.line(data_frame=df_rank,x='ranking_date',y='rank',color='name',title='Rank Evolution')
     plot.update_traces(mode="markers+lines", hovertemplate=None)
     plot.update_layout(hovermode="x")
     plot.update_yaxes(autorange="reversed")
-
+    
     return plot
 
 def historical_h2h(df,p1_id,p1_name,p2_id,p2_name):
@@ -76,9 +80,9 @@ def historical_h2h(df,p1_id,p1_name,p2_id,p2_name):
     return plot, df, text
 
 def tournament_predictor(df):
-    df['Aux'] = 1
-    plot = px.bar(data_frame=df,x='round',y='Aux',color='winner_name',title=f"Tournament Predictor",\
-            hover_data={'Model':True,'Precision':True,'Recall':True})
+    df['aux'] = 1
+    plot = px.bar(data_frame=df,x='round',y='aux',color='winner_name',title=f"Tournament Predictor",\
+            hover_data={'model':True,'precision':True,'recall':True})
     
     return plot
 
@@ -88,12 +92,13 @@ if __name__=='__main__':
     p1_id = 207989
     p2_name = 'Cameron Norrie'
     p2_id = 111815
-    # p = tournament_performance(matches,p1_id,p1_name)
-    # p.show()
+    
+    p = tournament_performance(matches,p1_id,p1_name)
+    p.show()
     # p = win_loss_ratio(matches,p1_id,p1_name)
     # p.show()
-    # p = rank_evol(rankings,p1_id,p2_id)
-    # p.show()
-    p,d,t = historical_h2h(matches,p1_id,p1_name,p2_id,p2_name)
+    p = rank_evol(rankings,p1_id,p2_id)
     p.show()
-    print(t)
+    # p,d,t = historical_h2h(matches,p1_id,p1_name,p2_id,p2_name)
+    p.show()
+    # print(t)
