@@ -16,17 +16,20 @@ def get_img_link(link):
 
 def get_current_ranking_photo(p1,p2):
     players,links = get_updated_ranking()
-    p1_rank,p2_rank,p1_link,p2_link = None,None,None,None
+    p1_link,p2_link = None,None
+
     if p1 in players:
         p1_index = players.index(p1)
         p1_link = get_img_link(links[p1_index])
-        p1_rank = p1_index+1
+        # p1_rank = p1_index+1
+
     if p2 in players:
         p2_index = players.index(p2)
         p2_link = get_img_link(links[p2_index])
-        p2_rank = p2_index+1
+        print(p2_link)
+        # p2_rank = p2_index+1
 
-    return p1_rank, p2_rank, p1_link, p2_link
+    return p1_link, p2_link
 
 
 def get_updated_ranking():
@@ -65,9 +68,10 @@ def scrape_it(soup):
     for name in names:
         p = name.find('a').contents[0].strip()
         link = name.find('a')['href']
+        players.append(p)
 
-        spl = p.split(' ')
-        players.append(spl[-1]+" "+spl[0][0]+".")
+        # spl = p.split(' ')
+        # players.append(spl[-1]+" "+spl[0][0]+".")
         links.append('https://www.atptour.com' + link)
 
     return players,links
@@ -75,6 +79,5 @@ def scrape_it(soup):
 
 if __name__=='__main__':
     # get_updated_ranking()
-    p1_rank,p2_rank,p1_link,p2_link = get_current_ranking_photo('Alcaraz C.','Nadal R.')
-    print(p1_rank,p2_rank)
+    p1_link,p2_link = get_current_ranking_photo('Carlos Alcaraz','Rafael Nadal')
     print(p1_link,p2_link)
