@@ -162,6 +162,8 @@ app.layout = dbc.Container([
 def update_graphs(p1_name,p2_name,tournament_name):
     p1_id = players_dict[p1_name][0]
     p2_id = players_dict[p2_name][0]
+    p1_rank = players_dict[p1_name][1]
+    p2_rank = players_dict[p2_name][1]
 
     p1_wl = win_loss_ratio(matches,p1_id,p1_name)
     p2_wl = win_loss_ratio(matches,p2_id,p2_name)
@@ -170,7 +172,7 @@ def update_graphs(p1_name,p2_name,tournament_name):
     rank = rank_evol(rankings,p1_id,p2_id)
     h2h_plot, h2h_table, h2h_text = historical_h2h(matches,p1_id,p1_name,p2_id,p2_name)
 
-    p1_rank, p2_rank,p1_img,p2_img = get_current_ranking_photo(p1_name,p2_name)
+    p1_img,p2_img = get_current_ranking_photo(p1_name,p2_name)
     if p1_img == None:
         p1_img = 'assets/img/tennis_logo.png'
     if p2_img==None:
@@ -186,6 +188,7 @@ def update_graphs(p1_name,p2_name,tournament_name):
     p2_rank = players_dict[p2_name][1]
     
     df_result = run_predictor_tournament(matches,p1_id,p2_id,p1_rank,p2_rank,tourn_info,rounds_list)
+    df_result['winner_name'] = np.where(df_result['winner_id']==p1_id, p1_name, p2_name)
     predict_result = tournament_predictor(df_result)
 
 
