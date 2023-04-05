@@ -57,6 +57,7 @@ def data_import():
 
     matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('Olympics')]
     matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('Laver Cup')]
+    matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('United Cup')]
 
     matches_clean['tourney_date'] = pd.to_datetime(matches_clean['tourney_date'],format='%Y%m%d')
 
@@ -67,11 +68,11 @@ def data_import():
     matches_clean['round_level'] = matches_clean['round'].map(rounds_ranking_dict)
 
     matches_clean['H2H'] = matches_clean.apply(generate_H2H, axis=1)
-    matches_clean['score'] = matches_clean['score'].str.upper()
-    matches_clean['score'] = matches_clean['score'].str.replace("."," ")
-    matches_clean[['winner_sets','loser_sets']]= matches_clean.apply(calculate_score, axis=1, result_type ='expand')
-    matches_clean['quality_win'] = matches_clean['winner_sets']-matches_clean['loser_sets']
-    matches_clean['quality_win'] = matches_clean['quality_win'].fillna(1)
+    # matches_clean['score'] = matches_clean['score'].str.upper()
+    # matches_clean['score'] = matches_clean['score'].str.replace("."," ")
+    # matches_clean[['winner_sets','loser_sets']]= matches_clean.apply(calculate_score, axis=1, result_type ='expand')
+    # matches_clean['quality_win'] = matches_clean['winner_sets']-matches_clean['loser_sets']
+    # matches_clean['quality_win'] = matches_clean['quality_win'].fillna(1)
     matches_clean = matches_clean.dropna()
     matches_clean = matches_clean[matches_clean['tourney_date']>=cutoff_date]
 
