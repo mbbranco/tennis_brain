@@ -20,75 +20,85 @@ import pandas as pd
 import numpy as np
 from datetime import datetime,date
 
-from data_prep import data_import
+from data_prep import data_import,get_more_info
 
 class TennisPredModel():
-    def build_data_model(self,df,p1_id,p2_id,rank_p1,rank_p2,tourn_info,match_round):
-        self.data = df
-        self.p1_id = p1_id
-        self.p2_id = p2_id
+    def __init__(self,p1_name,p2_name,matches,players_dict,tourn_info,match_round):
+        self.p1_name = p1_name
+        self.p2_name = p2_name
+
+        self.p1_id = players_dict[p1_name][0]
+        self.p2_id = players_dict[p2_name][0]
+
+        self.p1_rank = players_dict[p1_name][1]
+        self.p2_rank = players_dict[p2_name][1]
+
+        self.p1_ratio = players_dict[p1_name][2]
+        self.p2_ratio = players_dict[p2_name][2]
+
+        self.players = {}
+        self.players[p1_name] = self.p1_id
+        self.players[p2_name] = self.p2_id
+
+        self.matches = matches
+
+        self.surface = tourn_info[0]
+        #self.date = tourn_info[2]
+        self.tourn_date = datetime.today().strftime("%Y-%m-%d")
+        self.tourn_points = tourn_info[1]
+        self.tourn_name = tourn_info[3]
+
+        self.match_round = match_round
+
+    def build_data_model(self):   
+        features = ['tourney_date','tourney_name','winner_id','loser_id','winner_rank','loser_rank',
+                    'winner_win_loss_ratio','loser_win_loss_ratio','tourney_points','surface','round_level']
+     
+        # prepare match to preodict
+        inputs_match = [self.tourn_date, self.tourn_name, self.p1_id, self.p2_id, self.p1_rank, self.p2_rank, 
+                        self.p1_ratio,self.p2_ratio,self.tourn_points, self.surface,self.match_round]
         
-        features = ['tourney_date','tourney_name','winner_id','loser_id','winner_rank','loser_rank','tourney_points','round_level','surface','quality_win']
-    
-        self.prepare_match_to_predict(rank_p1,rank_p2,tourn_info,match_round,features)
-        self.get_matches_from_both(features)
-        self.join_all_matches()
-        print(self.all_matches)
-
-    def prepare_match_to_predict(self,rank_p1,rank_p2,tourn_info,match_round,features):
-        surface = tourn_info[0]
-        # date = tourn_info[2]
-        date = datetime.today().strftime("%Y-%m-%d")
-        points = tourn_info[1]
-        name = tourn_info[3]
-
-        inputs_match = [date, name, self.p1_id, self.p2_id, rank_p1, rank_p2, points, match_round, surface]
         df_input_match = pd.DataFrame([inputs_match],columns=features)
         df_input_match['h2h'] = 1
-        self.match_to_predict = df_input_match
 
-    def get_matches_from_both(self,features):
-        # condition_1 = (self.data['winner_id']== self.p1_id) | (self.data['loser_id']== self.p2_id)
-        # condition_2 = (self.data['winner_id']== self.p2_id) | (self.data['loser_id']== self.p1_id)
-        # matches_player = self.data[(condition_1)|(condition_2)]
+        
+        # create dataset with all matches + match to predict
+        matches_player = self.matches[features].copy()
 
-        matches_player = self.data[features]
         condition_1 = (matches_player['winner_id']== self.p1_id) & (matches_player['loser_id']== self.p2_id)
         condition_2 = (matches_player['winner_id']== self.p2_id) & (matches_player['loser_id']== self.p1_id)
 
         matches_player['h2h'] = np.where(((condition_1) | (condition_2)),1,0)
-        self.matches_both_players = matches_player
 
-
-    def join_all_matches(self):
-        matches = pd.concat([self.matches_both_players,self.match_to_predict])
-        matches = matches.reset_index(drop=True)
-        matches = matches.reset_index()
-        self.all_matches = matches
+        matches_final = pd.concat([matches_player,df_input_match])
+        matches_final = matches_final.reset_index(drop=True)
+        dataset = matches_final.reset_index()
+        self.dataset = dataset
 
     def prep_features(self):
-        self.all_matches['old'] = (datetime.now() - pd.to_datetime(self.all_matches['tourney_date'],format='%Y-%m-%d')).dt.days
-        print(self.all_matches)
-        type_dummy = pd.get_dummies(self.all_matches['surface'])
+        self.dataset['old'] = (datetime.now() - pd.to_datetime(self.dataset['tourney_date'],format='%Y-%m-%d')).dt.days
+        type_dummy = pd.get_dummies(self.dataset['surface'])
 
         encoder = LabelEncoder()
-        self.all_matches['tourney_name_enc'] = encoder.fit_transform(self.all_matches['tourney_name'])
+        self.dataset['tourney_name_enc'] = encoder.fit_transform(self.dataset['tourney_name'])
 
-        features_to_scale = ['winner_rank','loser_rank','tourney_points','round_level','tourney_name_enc','old']
+        features_to_scale = ['winner_rank','loser_rank','winner_win_loss_ratio','loser_win_loss_ratio',
+                             'tourney_points','round_level','tourney_name_enc','old']
+        
         scl = StandardScaler()
-        matches_scaled = scl.fit_transform(self.all_matches[features_to_scale])
+        matches_scaled = scl.fit_transform(self.dataset[features_to_scale])
         matches_scaled_df = pd.DataFrame(matches_scaled, columns=features_to_scale)
 
-        goal = pd.DataFrame(np.where((self.all_matches['winner_id']==self.p1_id),1,0),columns=['result'])
+        goal = pd.DataFrame(np.where((self.dataset['winner_id']==self.p1_id),1,0),columns=['result'])
         features_not_to_scale = ['index','h2h']
-        matches_not_scaled_df = self.all_matches[features_not_to_scale]
+        matches_not_scaled_df = self.dataset[features_not_to_scale]
 
         final_df = pd.concat([matches_scaled_df,type_dummy,goal,matches_not_scaled_df],axis=1)
-        self.scaled_data = final_df
+        self.dataset_scaled = final_df
 
     def prep_model(self,train_size_val=0.6,random_state_val=10):
-        match_to_predict = pd.DataFrame(self.scaled_data.iloc[-1]).T
-        matches_ready = self.scaled_data.iloc[0:-1]
+        match_to_predict = pd.DataFrame(self.dataset_scaled.iloc[-1]).T
+        matches_ready = self.dataset_scaled.iloc[0:-1]
 
         def create_feature_target_var(df):
             # Create feature variable
@@ -215,9 +225,10 @@ class TennisPredModel():
 
         return y_pred
 
-def run_predictor(matches,p1_id,p2_id,p1_rank,p2_rank,tourn_info,match_round):
-    tc = TennisPredModel()
-    tc.build_data_model(matches,p1_id,p2_id,p1_rank,p2_rank,tourn_info,match_round)
+def run_predictor(p1_name,p2_name,matches,players_dict,tourn_info,match_round):
+    tc = TennisPredModel(p1_name,p2_name,matches,players_dict,tourn_info,match_round)
+
+    tc.build_data_model()
     tc.prep_features()
     X, y, X_train, X_test, y_train, y_test, X_to_predict, y_to_predict = tc.prep_model()
 
@@ -235,10 +246,10 @@ def run_predictor(matches,p1_id,p2_id,p1_rank,p2_rank,tourn_info,match_round):
 
     return winner_id,model_name,preci,recall
 
-def run_predictor_tournament(matches,p1_id,p2_id,p1_rank,p2_rank,tourn_info,rounds):
+def run_predictor_tournament(p1_name,p2_name,matches,players_dict,tourn_info,rounds):
     data = []
     for t_round in rounds:
-       winner_id,model_name,preci,recall = run_predictor(matches,p1_id,p2_id,p1_rank,p2_rank,tourn_info,t_round)
+       winner_id,model_name,preci,recall = run_predictor(p1_name,p2_name,matches,players_dict,tourn_info,t_round)
        data.append([t_round, winner_id, model_name,round(preci,2),round(recall,2)])
     df = pd.DataFrame(data,columns=['round','winner_id','model','precision','recall'])
     
@@ -246,10 +257,8 @@ def run_predictor_tournament(matches,p1_id,p2_id,p1_rank,p2_rank,tourn_info,roun
 
 # Run app
 if __name__=='__main__':
-    p1_id,rank_p1 = 104745,5 # rafa
-    # p2_id,rank_p2 = 103819,3 #roger
-    p2_id, rank_p2 = 207989,2
-
+    p1_name = 'Carlos Alcaraz'
+    p2_name = 'Cameron Norrie'
     tournament_name = 'Roland Garros'
     tournament_date = date(2023,7,24).strftime("%Y-%m-%d")
 
@@ -261,8 +270,11 @@ if __name__=='__main__':
     tournament_dict[tournament_name] = infos
     tournament_info = tournament_dict[tournament_name]
     tournament_info.append(tournament_name)
-    rounds = list(range(0,8))
-    matches,ranks,players = data_import() 
 
-    df = run_predictor_tournament(matches,p1_id,p2_id,rank_p1,rank_p2,tournament_info,rounds)
+    rounds = list(range(0,8))
+
+    matches, rankings, players = data_import()
+    players_dict, tourn_dict, rounds_list, matches = get_more_info(matches,rankings,players)
+ 
+    df = run_predictor_tournament(p1_name,p2_name,matches,players_dict,tournament_info,rounds)
     print(df)
