@@ -11,8 +11,7 @@ def generate_H2H(row):
 
 def calculate_score(row):
     parcials = row['score'].split(" ")
-
-    if 'W/O' in parcials or 'RET' in parcials or 'DEF' in parcials:
+    if 'W/O' in parcials or 'RET' in parcials or 'DEF' in parcials or 'DEF.' in parcials:
         if row['best_of']==3:
             winner = 2
         else:
@@ -67,13 +66,11 @@ def data_import():
     rounds_ranking_dict = {'RR':7, 'R128':6, 'R64':5, 'R32':4, 'R16':3, 'QF':2, 'SF':1, 'F':0}
     matches_clean['round_level'] = matches_clean['round'].map(rounds_ranking_dict)
 
-    matches_clean['H2H'] = matches_clean.apply(generate_H2H, axis=1)
-    # matches_clean['score'] = matches_clean['score'].str.upper()
-    # matches_clean['score'] = matches_clean['score'].str.replace("."," ")
-    # matches_clean[['winner_sets','loser_sets']]= matches_clean.apply(calculate_score, axis=1, result_type ='expand')
-    # matches_clean['quality_win'] = matches_clean['winner_sets']-matches_clean['loser_sets']
-    # matches_clean['quality_win'] = matches_clean['quality_win'].fillna(1)
-    matches_clean = matches_clean.dropna()
+    # matches_clean['H2H'] = matches_clean.apply(generate_H2H, axis=1)
+    matches_clean['score'] = matches_clean['score'].str.upper().replace("."," ")
+    matches_clean[['winner_sets','loser_sets']]= matches_clean.apply(calculate_score, axis=1, result_type ='expand')
+    matches_clean['score_quality'] = matches_clean['winner_sets']-matches_clean['loser_sets']
+
     matches_clean = matches_clean[matches_clean['tourney_date']>=cutoff_date]
 
     matches_clean['tourney_year'] = matches_clean['tourney_date'].dt.year
@@ -105,6 +102,44 @@ def data_import():
 
     return matches_clean, rankings, players
 
+ 
+    
+def rolling_averages(matches,players_dict):
+    min_date = matches['tourney_date'].min()
+    max_date = matches['tourney_date'].max()
+    dates = pd.DataFrame(pd.date_range(min_date,max_date),columns=['tourney_date'])
+    dates['tourney_date'] = dates['tourney_date'].dt.date
+    
+    matches_dates = dates.merge(matches,on='tourney_date',how='left')
+
+    # win_ratio_rolling
+    df_final = pd.DataFrame()
+
+    for p in players_dict.values():
+        player_id = p[0]
+
+        df_p1 = matches_dates[(matches_dates['winner_id']==player_id) | (matches_dates['loser_id']==player_id)]
+        df_p1 = df_p1.reset_index().sort_values(by=['tourney_date'])
+
+        df_p1['win'] = np.where(df_p1['winner_id']==player_id,1,0)
+        df_p1['loss'] = np.where(df_p1['loser_id']==player_id,1,0)
+        df_p1['win_cum'] = df_p1['win'].cumsum()
+        df_p1['loss_cum'] = df_p1['loss'].cumsum()
+
+        df_p1['win_loss_ratio_rolling'] = df_p1['win_cum']/(df_p1['win_cum']+df_p1['loss_cum'])
+        df_p1['player_id'] = player_id
+        df_p1 = df_p1[['tourney_date','player_id','win_loss_ratio_rolling']].copy()
+        df_final = pd.concat([df_p1,df_final])
+
+
+
+    matches_final = matches.merge(df_final,left_on=['winner_id','tourney_date'],right_on=['player_id','tourney_date'],how='left',suffixes=('','_winner'))
+    matches_final = matches_final.merge(df_final,left_on=['loser_id','tourney_date'],right_on=['player_id','tourney_date'],how='left',suffixes=('','_loser'))
+    # matches_final = matches_final.drop(columns=['player_id','player_id_winner'])
+
+    print(matches_final)
+
+
 def get_more_info(matches,rankings,players):
     tournaments = matches.sort_values(by='tourney_date',ascending=False).drop_duplicates(subset=['tourney_name','surface','tourney_points'])
 
@@ -116,7 +151,13 @@ def get_more_info(matches,rankings,players):
     for i, row in players.iterrows():
         ranking_player = rankings[rankings['player'] == row['player_id']]
         last_available_rank = ranking_player['ranking_date'].max()
-        last_rank = ranking_player[ranking_player['ranking_date']==last_available_rank]['rank'].iloc[0]
+
+        last_rank = ranking_player[ranking_player['ranking_date']==last_available_rank]['rank']
+        if last_rank.shape[0]!=0:
+            last_rank = last_rank.iloc[0]
+        else:
+            last_rank = 'N/A'
+
         players_dict[row['name']] = [row['player_id'],last_rank]
 
     rounds = list(matches['round_level'].unique())
@@ -125,16 +166,18 @@ def get_more_info(matches,rankings,players):
 
 if __name__=='__main__':
     matches, rankings, players = data_import()
-    print(matches.info())
-    print(matches.head(5))
-    print(rankings.head(5))
-    print(players.head(5))
+    # print(matches.info())
+    # print(matches.head(5))
+    # print(rankings.head(5))
+    # print(players.head(5))
     players_dict, tournaments_dict, rounds = get_more_info(matches,rankings,players)
-    print(tournaments_dict)
-    print(tournaments_dict.keys())
-    tournament_surface = tournaments_dict['Roland Garros'][1]
-    print(tournament_surface)
-    print(players_dict['Roger Federer'])
-    df_aux = matches[matches['winner_id']==players_dict['Roger Federer']]    
-    print(df_aux)
+    rolling_averages(matches,players_dict)
+
+    # print(tournaments_dict)
+    # print(tournaments_dict.keys())
+    # tournament_surface = tournaments_dict['Roland Garros'][1]
+    # print(tournament_surface)
+    # print(players_dict['Roger Federer'])
+    # df_aux = matches[matches['winner_id']==players_dict['Roger Federer']]    
+    # print(df_aux)
 
