@@ -1,4 +1,5 @@
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 # Import scores
@@ -11,8 +12,9 @@ from sklearn.metrics import f1_score
 
 # Import classifiers
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
 
 import pandas as pd
 import numpy as np
@@ -25,8 +27,9 @@ class TennisPredModel():
         self.data = df
         self.p1_id = p1_id
         self.p2_id = p2_id
-
-        features = ['tourney_date','tourney_name','winner_id','loser_id','winner_rank','loser_rank','tourney_points','round_level','surface']
+        
+        features = ['tourney_date','tourney_name','winner_id','loser_id','winner_rank','loser_rank','tourney_points','round_level','surface','quality_win']
+    
         self.prepare_match_to_predict(rank_p1,rank_p2,tourn_info,match_round,features)
         self.get_matches_from_both(features)
         self.join_all_matches()
@@ -45,17 +48,17 @@ class TennisPredModel():
         self.match_to_predict = df_input_match
 
     def get_matches_from_both(self,features):
-        condition_1 = (self.data['winner_id']== self.p1_id) | (self.data['loser_id']== self.p2_id)
-        condition_2 = (self.data['winner_id']== self.p2_id) | (self.data['loser_id']== self.p1_id)
-        matches_player = self.data[(condition_1)|(condition_2)]
+        # condition_1 = (self.data['winner_id']== self.p1_id) | (self.data['loser_id']== self.p2_id)
+        # condition_2 = (self.data['winner_id']== self.p2_id) | (self.data['loser_id']== self.p1_id)
+        # matches_player = self.data[(condition_1)|(condition_2)]
 
-        matches_player = matches_player[features]
+        matches_player = self.data[features]
         condition_1 = (matches_player['winner_id']== self.p1_id) & (matches_player['loser_id']== self.p2_id)
         condition_2 = (matches_player['winner_id']== self.p2_id) & (matches_player['loser_id']== self.p1_id)
 
         matches_player['h2h'] = np.where(((condition_1) | (condition_2)),1,0)
-
         self.matches_both_players = matches_player
+
 
     def join_all_matches(self):
         matches = pd.concat([self.matches_both_players,self.match_to_predict])
@@ -104,7 +107,34 @@ class TennisPredModel():
         return X, y, X_train, X_test, y_train, y_test, X_to_predict, y_to_predict
 
 
-    def predictive_model(self,model,X_train,y_train,X_test,y_test):
+    def hyperparameter_tuning(self,name,X,y,X_train,y_train):
+        if name=='LogisticRegression':
+            # Logistic Regression Classifier
+            parameters = {'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000] }
+            model = LogisticRegression()
+            log_cv = GridSearchCV(model, parameters, cv=5)
+            log_cv.fit(X_train, y_train)
+            model = LogisticRegression(C=log_cv.best_params_['C'])
+            print(f'model {model}: {log_cv.best_params_}')
+
+        elif name =='KNN':
+            # KNN - Neighrest Neighbor 
+            param_grid = {'n_neighbors': np.arange(1,50)}
+            knn = KNeighborsClassifier()
+            knn_cv = GridSearchCV(knn, param_grid, cv=3)
+            knn_cv.fit(X,y)
+            model = KNeighborsClassifier(n_neighbors=knn_cv.best_params_['n_neighbors'])
+            print(f'model {model}: {knn_cv.best_params_}')
+
+        elif name == 'SVC':
+            parameters = {'C':[1, 10, 100]}
+            svc = SVC()
+            cv = GridSearchCV(svc, parameters, cv = 5)
+            cv.fit(X, y)
+            model = SVC(C=cv.best_params_['C'], probability=True)
+            print(f'model {model}: {cv.best_params_}')
+    
+    def predictive_model(self,model,X,y,X_train,y_train,X_test,y_test):
         # Fit to the training data
         model.fit(X_train,y_train)
 
@@ -142,9 +172,10 @@ class TennisPredModel():
 
         return [accuracy,precision,recall,auc,f1_score_val], y_pred
 
-    def pick_best_model(self,X_train,y_train,X_test,y_test):
-        classifiers = [LogisticRegression(),RandomForestClassifier(),DecisionTreeClassifier()]
-        classifiers_names = ['LogisticRegression','RandomForestClassifier','DecisionTreeClassifier']
+    def pick_best_model(self,X,y,X_train,y_train,X_test,y_test):
+
+        classifiers = [LogisticRegression(),RandomForestClassifier(),DecisionTreeClassifier(),SVC(),KNeighborsClassifier()]
+        classifiers_names = ['LogisticRegression','RandomForestClassifier','DecisionTreeClassifier','SVC','KNN']
         dict_classifiers = dict(zip(classifiers_names, classifiers))
         
         results = {}
@@ -152,7 +183,9 @@ class TennisPredModel():
         best_score = 0
         best_model = ""
         for name, clf in dict_classifiers.items():
-            scores, y_pred = self.predictive_model(clf,X_train,y_train,X_test,y_test)
+            print(f'Predicting using {name}')
+            self.hyperparameter_tuning(name,X, y, X_train,y_train)
+            scores, y_pred = self.predictive_model(clf, X, y, X_train,y_train, X_test, y_test)
             results[name] = scores
             predictions[name] = y_pred
             preci = scores[1]
@@ -188,7 +221,7 @@ def run_predictor(matches,p1_id,p2_id,p1_rank,p2_rank,tourn_info,match_round):
     tc.prep_features()
     X, y, X_train, X_test, y_train, y_test, X_to_predict, y_to_predict = tc.prep_model()
 
-    model_selected,model_name,preci,recall = tc.pick_best_model(X_train, y_train, X_test, y_test)
+    model_selected,model_name,preci,recall = tc.pick_best_model(X, y, X_train, y_train, X_test, y_test)
     
     result = tc.predictive_model_final(model_selected,X,y,X_to_predict,y_to_predict)
 
