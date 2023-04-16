@@ -1,7 +1,7 @@
 import plotly.express as px
 import numpy as np
 import pandas as pd
-from data_prep import data_import
+from data_prep import data_import, get_more_info
 
 def win_loss_ratio(df,player_id,player_name):
     df_p1 = df[(df['winner_id']==player_id) | (df['loser_id']==player_id)].copy()
@@ -42,6 +42,34 @@ def tournament_performance(df,player_id,player_name):
     
     return plot
 
+
+def ratio_evol(matches,p1_id,p2_id):
+    ratios = matches.copy()
+
+    ratios['p1'] = np.where((matches['winner_id']==p1_id),'W','')
+    ratios['p1'] = np.where((matches['loser_id']==p1_id),'L',ratios['p1'])
+    ratios['p2'] = np.where((matches['winner_id']==p2_id),'W','')
+    ratios['p2'] = np.where((matches['loser_id']==p2_id),'L',ratios['p2'])
+
+    ratios_filtered = ratios[(ratios['p1']!='')|(ratios['p2']!='')]
+
+    ratios_p1 = ratios_filtered[ratios_filtered['p1']!='']
+    ratios_p1['win_loss_ratio'] = np.where(ratios_p1['p1']=='W',ratios_p1['winner_win_loss_ratio'],ratios_p1['loser_win_loss_ratio'])
+    ratios_p1['player_name'] = np.where(ratios_p1['p1']=='W',ratios_p1['winner_name'],ratios_p1['loser_name'])
+
+    ratios_p2 = ratios_filtered[ratios_filtered['p2']!='']
+    ratios_p2['win_loss_ratio'] = np.where(ratios_p2['p2']=='W',ratios_p2['winner_win_loss_ratio'],ratios_p2['loser_win_loss_ratio'])
+    ratios_p2['player_name'] = np.where(ratios_p2['p2']=='W',ratios_p2['winner_name'],ratios_p2['loser_name'])
+    
+    ratios_all = pd.concat([ratios_p1,ratios_p2])
+    ratios_all = ratios_all[['tourney_date','player_name','win_loss_ratio']]
+
+    ratios_all = ratios_all.sort_values(by='tourney_date')
+    plot = px.line(data_frame=ratios_all,x='tourney_date',y='win_loss_ratio',color='player_name',title='Ratio Evolution')
+    plot.update_traces(mode="markers+lines", hovertemplate=None)
+    plot.update_layout(hovermode="x")
+    
+    return plot
 
 def rank_evol(rankings,p1_id,p2_id):
     df_rank = rankings[(rankings['player']==p1_id)|(rankings['player']==p2_id)].copy()
@@ -88,16 +116,26 @@ def tournament_predictor(df):
 
 if __name__=='__main__':
     matches,rankings,players = data_import()
+    players_dict, tourn_dict, rounds_list, matches = get_more_info(matches,rankings,players)
+
+
     p1_name = 'Carlos Alcaraz'
     p1_id = 207989
     p2_name = 'Cameron Norrie'
     p2_id = 111815
-    
-    p = tournament_performance(matches,p1_id,p1_name)
-    p.show()
+
+    players_dict_selected = {}
+    players_dict_selected[p1_name] = p1_id
+    players_dict_selected[p2_name] = p2_id
+
+    # p = tournament_performance(matches,p1_id,p1_name)
+    # p.show()
     # p = win_loss_ratio(matches,p1_id,p1_name)
     # p.show()
-    p = rank_evol(rankings,p1_id,p2_id)
+    # p = rank_evol(rankings,p1_id,p2_id)
+    # p.show()
+
+    p = ratio_evol(matches,p1_id,p2_id)
     p.show()
     # p,d,t = historical_h2h(matches,p1_id,p1_name,p2_id,p2_name)
     p.show()
