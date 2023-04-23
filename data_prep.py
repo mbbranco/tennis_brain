@@ -51,12 +51,11 @@ def data_import():
 
     # clean matches
     matches_clean =  matches[columns_to_keep]
-
     matches_clean = matches_clean[~matches_clean['tourney_level'].isin(['J','E','T','S','C','D'])]
 
     matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('Olympics')]
-    matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('Laver Cup')]
-    matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('United Cup')]
+    matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('Cup')]
+    matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('Finals')]
 
     matches_clean['tourney_date'] = pd.to_datetime(matches_clean['tourney_date'],format='%Y%m%d')
 
@@ -75,6 +74,10 @@ def data_import():
 
     matches_clean['tourney_year'] = matches_clean['tourney_date'].dt.year
     matches_clean['tourney_date'] = matches_clean['tourney_date'].dt.date
+
+    matches_clean = matches_clean.dropna()
+    matches_clean.index = pd.RangeIndex(start=0, stop=len(matches_clean), step=1)
+    matches_clean = matches_clean.reset_index().rename(columns={'index':'id'})
 
     # read players
     players = pd.read_csv('tennis_atp/atp_players.csv')
@@ -165,7 +168,7 @@ def get_more_info(matches,rankings,players):
         
         # win_ratio_rolling
         df_p1 = matches[(matches['winner_id']==player_id) | (matches['loser_id']==player_id)]
-        df_p1 = df_p1.reset_index().sort_values(by=['tourney_date'])
+        df_p1 = df_p1.sort_values(by=['tourney_date'])
 
         df_p1['win'] = np.where(df_p1['winner_id']==player_id,1,0)
         df_p1['loss'] = np.where(df_p1['loser_id']==player_id,1,0)
@@ -174,22 +177,21 @@ def get_more_info(matches,rankings,players):
 
         df_p1['win_loss_ratio'] = round(df_p1['win_cum']/(df_p1['win_cum']+df_p1['loss_cum']),2)
         df_p1['player_id'] = player_id
-        df_p1['player_name'] = player_name
 
-        df_p1 = df_p1[['tourney_date','player_id','win_loss_ratio']].copy()
+        df_p1 = df_p1[['id','player_id','win_loss_ratio']].copy()
         ratios = pd.concat([df_p1,ratios])
 
         last_ratio = df_p1.iloc[-1]['win_loss_ratio']
         last_rank = get_last_rank(player_id,rankings)
 
         players_dict[player_name] = [player_id,last_rank,last_ratio]
-    
 
-    matches = matches.merge(ratios,left_on=['tourney_date','winner_id'],right_on=['tourney_date','player_id'],how='left')
+
+    matches = matches.merge(ratios,left_on=['id','winner_id'],right_on=['id','player_id'],how='left')
     matches = matches.rename(columns={'win_loss_ratio':'winner_win_loss_ratio'})
     matches = matches.drop(columns=['player_id'])
-    
-    matches = matches.merge(ratios,left_on=['tourney_date','loser_id'],right_on=['tourney_date','player_id'],how='left')
+
+    matches = matches.merge(ratios,left_on=['id','loser_id'],right_on=['id','player_id'],how='left')
     matches = matches.rename(columns={'win_loss_ratio':'loser_win_loss_ratio'})
     matches = matches.drop(columns=['player_id'])
 
@@ -205,7 +207,7 @@ if __name__=='__main__':
     # print(matches.head(5))
     # print(rankings.head(5))
     # print(players.head(5))
-    players_dict, tournaments_dict, rounds, matches = get_more_info(matches,rankings,players)
+    # players_dict, tournaments_dict, rounds, matches = get_more_info(matches,rankings,players)
 
     print(matches)
     
