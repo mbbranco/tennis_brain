@@ -11,7 +11,11 @@ def get_img_link(link):
     info = opener.open(link).read()
     soup = BeautifulSoup(info, "html.parser")
     i = soup.find(class_='player-profile-hero-image')
+    if i is None:
+        i = soup.find(class_='small-headshot')
+
     img_link = 'https://www.atptour.com' + i.img['src']
+
     return img_link
 
 def get_current_ranking_photo(p1,p2):
@@ -25,6 +29,7 @@ def get_current_ranking_photo(p1,p2):
 
     if p2 in players:
         p2_index = players.index(p2)
+        print(p2_index)
         p2_link = get_img_link(links[p2_index])
         print(p2_link)
         # p2_rank = p2_index+1
@@ -79,5 +84,5 @@ def scrape_it(soup):
 
 if __name__=='__main__':
     # get_updated_ranking()
-    p1_link,p2_link = get_current_ranking_photo('Carlos Alcaraz','Rafael Nadal')
+    p1_link,p2_link = get_current_ranking_photo('Carlos Alcaraz','Nuno Borges')
     print(p1_link,p2_link)
