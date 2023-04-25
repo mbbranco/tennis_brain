@@ -162,6 +162,7 @@ def get_more_info(matches,rankings,players):
 
     ratios = pd.DataFrame()
     players_dict = {}
+    players = players.sort_values(by='name')
     for i, row in players.iterrows():
         player_id = row['player_id']
         player_name = row['name']
@@ -175,10 +176,12 @@ def get_more_info(matches,rankings,players):
         df_p1['win_cum'] = df_p1['win'].cumsum()
         df_p1['loss_cum'] = df_p1['loss'].cumsum()
 
-        df_p1['win_loss_ratio'] = round(df_p1['win_cum']/(df_p1['win_cum']+df_p1['loss_cum']),2)
+        df_p1['win_loss_ratio'] = round(df_p1['win_cum']/(df_p1['loss_cum']),2)
+        df_p1['win_perc'] = round(df_p1['win_cum']/(df_p1['win_cum']+df_p1['loss_cum']),2)
+
         df_p1['player_id'] = player_id
 
-        df_p1 = df_p1[['id','player_id','win_loss_ratio']].copy()
+        df_p1 = df_p1[['id','player_id','win_loss_ratio','win_perc']].copy()
         ratios = pd.concat([df_p1,ratios])
 
         last_ratio = df_p1.iloc[-1]['win_loss_ratio']
@@ -188,11 +191,11 @@ def get_more_info(matches,rankings,players):
 
 
     matches = matches.merge(ratios,left_on=['id','winner_id'],right_on=['id','player_id'],how='left')
-    matches = matches.rename(columns={'win_loss_ratio':'winner_win_loss_ratio'})
+    matches = matches.rename(columns={'win_loss_ratio':'winner_win_loss_ratio','win_perc':'winner_win_perc'})
     matches = matches.drop(columns=['player_id'])
 
     matches = matches.merge(ratios,left_on=['id','loser_id'],right_on=['id','player_id'],how='left')
-    matches = matches.rename(columns={'win_loss_ratio':'loser_win_loss_ratio'})
+    matches = matches.rename(columns={'win_loss_ratio':'loser_win_loss_ratio','win_perc':'loser_win_perc'})
     matches = matches.drop(columns=['player_id'])
 
     rounds = list(matches['round_level'].unique())
