@@ -9,12 +9,18 @@ def win_loss_ratio(df,player_id,player_name):
     df_p1['win_loss_val'] =  np.where(df_p1['winner_id']==player_id,1,-1)
     df_p1 = df_p1.sort_values(by='surface')
 
+    txt = ''
+    for surface,group in df_p1.groupby('surface'):
+        wins = group[group['win_loss_val']==1]['win_loss_val'].sum()
+        losses = -group[group['win_loss_val']==-1]['win_loss_val'].sum()
+        txt += f'{surface}: {wins/losses:.2f} | '
+
     plot = px.bar(data_frame=df_p1,x='surface',y='win_loss_val',color='win_loss',\
         color_discrete_map={
         'Win': 'green',
         'Loss': 'red'
         },\
-        title=f"Win/Loss Ratio for {player_name}",\
+        title=f"Win/Loss Ratio for {player_name}: {txt}",\
         hover_data={'tourney_name':True,'tourney_date':True})
 
     return plot
@@ -53,19 +59,21 @@ def ratio_evol(matches,p1_id,p2_id):
 
     ratios_filtered = ratios[(ratios['p1']!='')|(ratios['p2']!='')]
 
-    ratios_p1 = ratios_filtered[ratios_filtered['p1']!='']
+    ratios_p1 = ratios_filtered[ratios_filtered['p1']!=''].copy()
     ratios_p1['win_loss_ratio'] = np.where(ratios_p1['p1']=='W',ratios_p1['winner_win_loss_ratio'],ratios_p1['loser_win_loss_ratio'])
     ratios_p1['player_name'] = np.where(ratios_p1['p1']=='W',ratios_p1['winner_name'],ratios_p1['loser_name'])
 
-    ratios_p2 = ratios_filtered[ratios_filtered['p2']!='']
+    ratios_p2 = ratios_filtered[ratios_filtered['p2']!=''].copy()
     ratios_p2['win_loss_ratio'] = np.where(ratios_p2['p2']=='W',ratios_p2['winner_win_loss_ratio'],ratios_p2['loser_win_loss_ratio'])
     ratios_p2['player_name'] = np.where(ratios_p2['p2']=='W',ratios_p2['winner_name'],ratios_p2['loser_name'])
     
     ratios_all = pd.concat([ratios_p1,ratios_p2])
     ratios_all = ratios_all[['tourney_date','player_name','win_loss_ratio']]
+    start_date = max(ratios_p1['tourney_date'].min(),ratios_p2['tourney_date'].min())
+    ratios_all = ratios_all[ratios_all['tourney_date']>=start_date]
 
     ratios_all = ratios_all.sort_values(by='tourney_date')
-    plot = px.line(data_frame=ratios_all,x='tourney_date',y='win_loss_ratio',color='player_name',title='Ratio Evolution')
+    plot = px.line(data_frame=ratios_all,x='tourney_date',y='win_loss_ratio',color='player_name',title='W/L Ratio Evolution')
     plot.update_traces(mode="markers+lines", hovertemplate=None)
     plot.update_layout(hovermode="x")
     
@@ -101,11 +109,9 @@ def historical_h2h(df,p1_id,p1_name,p2_id,p2_name):
 
     color_mapping = {'Clay':'#FFA15A','Grass':'#00CC96','Hard':'#636EFA','Carpet':'#AB63FA'}
 
-    plot = px.bar(df_h2h,x='surface',color='winner_name',text='tourney_name',hover_data={'tourney_points':True,'round':True},title='H2H Match Winners',color_discrete_map=color_mapping)
+    plot = px.bar(df_h2h,x='surface',color='winner_name',text='tourney_name',hover_data={'tourney_points':True,'round':True,'tourney_date':True},title=f'H2H - {text} ',color_discrete_map=color_mapping)
 
-    df = df_h2h[['tourney_date','tourney_name','tourney_points','surface','round','winner_name','winner_rank','loser_name','loser_rank','score']]
-
-    return plot, df, text
+    return plot, df_h2h
 
 def tournament_predictor(df):
     df['aux'] = 1
@@ -130,8 +136,8 @@ if __name__=='__main__':
 
     # p = tournament_performance(matches,p1_id,p1_name)
     # p.show()
-    # p = win_loss_ratio(matches,p1_id,p1_name)
-    # p.show()
+    p = win_loss_ratio(matches,p1_id,p1_name)
+    p.show()
     # p = rank_evol(rankings,p1_id,p2_id)
     # p.show()
 
