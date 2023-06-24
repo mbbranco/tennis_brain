@@ -40,7 +40,7 @@ def data_import():
     rankings = pd.DataFrame()
 
     # read matches
-    data_folder = glob.glob("src/tennis_atp/atp_matches_20*.csv")
+    data_folder = glob.glob("tennis_atp/atp_matches_20*.csv")
     for file in data_folder:
         t = pd.read_csv(file,low_memory=False)
         matches = pd.concat([matches,t])
@@ -80,7 +80,7 @@ def data_import():
     matches_clean = matches_clean.reset_index().rename(columns={'index':'id'})
 
     # read players
-    players = pd.read_csv('src/tennis_atp/atp_players.csv')
+    players = pd.read_csv('tennis_atp/atp_players.csv')
     
     # filter by the players appearing on matches cleaned
     winners = set(matches_clean['winner_id'].unique())
@@ -92,7 +92,7 @@ def data_import():
     players['name'] = players['name_first'] + " " + players['name_last']
 
     # read rankings
-    data_folder = glob.glob("src/tennis_atp/atp_rankings_*.csv")
+    data_folder = glob.glob("tennis_atp/atp_rankings_*.csv")
     for file in data_folder:
         t = pd.read_csv(file,low_memory=False)
         rankings = pd.concat([rankings,t])
