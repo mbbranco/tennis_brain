@@ -1,0 +1,40 @@
+import glob
+import pandas as pd
+
+# df_2022 = pd.read_excel('data/2022.xlsx')
+# print(df_2022)
+# df_2022.to_csv('data/tennis_data_2022.csv',sep=",",decimal=".",encoding='UTF-8',index=None)
+
+# df_2022 = pd.read_excel('data/2023_03_31.xlsx')
+# print(df_2022)
+# df_2022.to_csv('data/tennis_data_2023_03_31.csv',sep=",",decimal=".",encoding='UTF-8',index=None)
+
+# df_all = pd.read_csv('data/original/tennis_data.csv')
+# print(df_all.head())
+# print(df_all['Date'].max())
+# print(df_all['Date'].min())
+# df_all = df_all[df_all['Date']<'2022-01-01']
+# df_all = df_all[df_all['Date']>'2007-12-31']
+
+# df_all.to_csv('data/tennis_data_2008_2021.csv',sep=",",decimal=".",encoding='UTF-8',index=None)
+
+# tennis = pd.DataFrame()
+# columns_to_keep = ['ATP','Date','Round','Tournament','Series','Court','Surface','Winner','Loser','WRank','LRank','Wsets','Lsets','Best of']
+
+# data_folder = glob.glob("data/*.csv")
+# for file in data_folder:
+#     t = pd.read_csv(file,low_memory=False)
+#     t = t[columns_to_keep]
+#     tennis = pd.concat([tennis,t])
+
+# print(tennis.info())
+
+# tennis = tennis.dropna()
+
+# print(tennis.info())
+
+import requests
+
+url = 'https://github.com/JeffSackmann/tennis_atp'
+read_data = requests.get(url).content
+print(read_data)

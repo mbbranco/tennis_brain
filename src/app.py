@@ -26,7 +26,7 @@ features_table = ['tourney_date','tourney_name','tourney_points','surface','roun
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 server = app.server
 
-app._favicon = 'img/tennis_logo.ico'
+app._favicon = 'assets/img/tennis_logo.ico'
 app.title = 'Tennis Brain'
 
 logo = html.Div([
