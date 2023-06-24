@@ -12,9 +12,6 @@ from plotting_functions import historical_h2h, tournament_performance,win_loss_r
 from model_predict import run_predictor_tournament
 from web_scraper import get_current_ranking_photo
 
-import numpy as np
-import pandas as pd
-
 pio.templates.default = "plotly_dark"
 
 # incorporate data into app
@@ -26,11 +23,11 @@ features_table = ['tourney_date','tourney_name','tourney_points','surface','roun
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 server = app.server
 
-app._favicon = 'assets/img/tennis_logo.ico'
+app._favicon = '../assets/img/tennis_logo.ico'
 app.title = 'Tennis Brain'
 
 logo = html.Div([
-    html.Img(src='assets/img/tennis_logo.png',width=50,height=50)
+    html.Img(src='../assets/img/tennis_logo.png',width=50,height=50)
 ])
 
 p2_img = html.Div([
@@ -179,9 +176,9 @@ def update_graphs(p1_name,p2_name):
 
     p1_img,p2_img = get_current_ranking_photo(p1_name,p2_name)
     if p1_img == None:
-        p1_img = 'assets/img/tennis_logo.png'
+        p1_img = '../assets/img/tennis_logo.png'
     if p2_img==None:
-        p2_img = 'assets/img/tennis_logo.png'
+        p2_img = '../assets/img/tennis_logo.png'
 
 
     # tourn_info = tourn_dict[tournament_name]
@@ -201,4 +198,4 @@ def update_graphs(p1_name,p2_name):
 
 # Run app
 if __name__=='__main__':
-    app.run_server(port=8051,debug=True, dev_tools_silence_routes_logging=True)
+    app.run_server(port=8051,debug=True, dev_tools_silence_routes_logging=True)   
