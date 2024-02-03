@@ -45,27 +45,30 @@ def data_import():
         t = pd.read_csv(file,low_memory=False)
         matches = pd.concat([matches,t])
 
-    columns_to_keep = ['tourney_date','tourney_name','tourney_level','draw_size','surface','best_of','round','score',
+    columns_to_keep = ['tourney_date','tourney_name','tourney_level','draw_size','surface','best_of','round',
+                       'score',
                        'winner_id','winner_name','winner_age','winner_rank',
                        'loser_id','loser_name','loser_age','loser_rank']
 
+
     # clean matches
     matches_clean =  matches[columns_to_keep]
-    matches_clean = matches_clean[~matches_clean['tourney_level'].isin(['J','E','T','S','C','D'])]
+    matches_clean = matches_clean[~matches_clean['tourney_level'].isin(['C','S','F','D','P','PM','I','E','J','T'])]
 
     matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('Olympics')]
     matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('Cup')]
     matches_clean = matches_clean[~matches_clean['tourney_name'].str.contains('Finals')]
 
     matches_clean['tourney_date'] = pd.to_datetime(matches_clean['tourney_date'],format='%Y%m%d')
-
+    
+    # TODO: numero de pontos de cada torneio diferenciar - 500 e 250
+     
     series_ranking_dict = {'A':250,'M':1000,'G':2000}
     matches_clean['tourney_points'] = matches_clean['tourney_level'].map(series_ranking_dict)
 
     rounds_ranking_dict = {'RR':7, 'R128':6, 'R64':5, 'R32':4, 'R16':3, 'QF':2, 'SF':1, 'F':0}
     matches_clean['round_level'] = matches_clean['round'].map(rounds_ranking_dict)
 
-    # matches_clean['H2H'] = matches_clean.apply(generate_H2H, axis=1)
     matches_clean['score'] = matches_clean['score'].str.upper().replace("."," ")
     matches_clean[['winner_sets','loser_sets']]= matches_clean.apply(calculate_score, axis=1, result_type ='expand')
     matches_clean['score_quality'] = matches_clean['winner_sets']-matches_clean['loser_sets']
@@ -77,7 +80,7 @@ def data_import():
 
     matches_clean = matches_clean.dropna()
     matches_clean.index = pd.RangeIndex(start=0, stop=len(matches_clean), step=1)
-    matches_clean = matches_clean.reset_index().rename(columns={'index':'id'})
+    matches_clean = matches_clean.reset_index().rename(columns={'index':'match_id'})
 
     # read players
     players = pd.read_csv('tennis_atp/atp_players.csv')
@@ -140,10 +143,14 @@ def data_import():
 
 #     return df_ratios
 
-def get_last_rank(player_id,rankings):
+def get_last_rank(player_id,rankings,date=None):
     ranking_player = rankings[rankings['player'] == player_id]
 
-    last_available_rank = ranking_player['ranking_date'].max()
+    if date is None:
+        last_available_rank = ranking_player['ranking_date'].max()
+    else:
+        last_available_rank = ranking_player[ranking_player['ranking_date']<=date]
+        last_available_rank = last_available_rank['ranking_date'].max()
 
     last_rank = ranking_player[ranking_player['ranking_date']==last_available_rank]['rank']
     if last_rank.shape[0]!=0:
@@ -153,67 +160,78 @@ def get_last_rank(player_id,rankings):
 
     return last_rank
 
-def get_more_info(matches,rankings,players):
-    tournaments = matches.sort_values(by='tourney_date',ascending=False).drop_duplicates(subset=['tourney_name','surface','tourney_points'])
+def get_player_id_by_name(name,players):
+    for k, v in players.items():
+        if v['name']==name:
+            return k
+        
+def get_players_info(players,rankings):
+    players_dict = {}
+    for i,row in players.iterrows():
+        player_id = row['player_id']
+        players_dict[player_id] = row.to_dict()
+
+    return players_dict
+
+def get_tournaments_info(matches):
+    tournaments = matches[['tourney_date','tourney_name','surface','tourney_points','best_of','draw_size']].sort_values(by='tourney_date',ascending=True)
+    tournaments = tournaments.drop_duplicates(subset=['tourney_name','surface','tourney_points'])
 
     tournaments_dict= {}
-    for i,row in tournaments.iterrows():
-        tournaments_dict[row['tourney_name']] = [row['surface'],row['tourney_points'],row['tourney_date']]
+    for name,row in tournaments.groupby('tourney_name'):
+        dates = row['tourney_date'].to_list()
+        tournaments_dict[name] = row[['surface','tourney_points','best_of','draw_size','tourney_name']].iloc[0].to_dict()
+        tournaments_dict[name].update({'dates':dates})
+    
+    return tournaments_dict
 
+def get_kpis(matches,players):
     ratios = pd.DataFrame()
-    players_dict = {}
-    players = players.sort_values(by='name')
-    for i, row in players.iterrows():
+    for i,row in players.iterrows():
         player_id = row['player_id']
-        player_name = row['name']
-        
         # win_ratio_rolling
         df_p1 = matches[(matches['winner_id']==player_id) | (matches['loser_id']==player_id)]
         df_p1 = df_p1.sort_values(by=['tourney_date'])
+        df_p1 = df_p1[['match_id','tourney_date','winner_id','loser_id']].copy()
 
         df_p1['win'] = np.where(df_p1['winner_id']==player_id,1,0)
         df_p1['loss'] = np.where(df_p1['loser_id']==player_id,1,0)
         df_p1['win_cum'] = df_p1['win'].cumsum()
         df_p1['loss_cum'] = df_p1['loss'].cumsum()
+        
+        df_p1['win_loss_ratio'] = np.where(df_p1['loss_cum']==0,np.nan,round(df_p1['win_cum']/(df_p1['loss_cum']),2))
+        df_p1['win_perc'] = np.where((df_p1['win_cum']+df_p1['loss_cum'])==0,np.nan,round(df_p1['win_cum']/(df_p1['win_cum']+df_p1['loss_cum']),2))
+        
+        # df_p1['win_cum_roll'] = df_p1['win'].rolling(min_periods=1, window=11).sum()
+        # df_p1['loss_cum_roll'] = df_p1['loss'].rolling(min_periods=1, window=11).sum()
 
-        df_p1['win_loss_ratio'] = round(df_p1['win_cum']/(df_p1['loss_cum']),2)
-        df_p1['win_perc'] = round(df_p1['win_cum']/(df_p1['win_cum']+df_p1['loss_cum']),2)
+        # df_p1['win_loss_ratio_roll'] = np.where(df_p1['loss_cum_roll']==0,np.nan,
+        #                                         round(df_p1['win_cum_roll']/(df_p1['loss_cum_roll']),2))
+        
+        # df_p1['win_perc_roll'] = np.where((df_p1['win_cum_roll']+df_p1['loss_cum_roll'])==0,np.nan,
+        #                                   round(df_p1['win_cum_roll']/(df_p1['win_cum_roll']+df_p1['loss_cum_roll']),2))
 
-        df_p1['player_id'] = player_id
-
-        df_p1 = df_p1[['id','player_id','win_loss_ratio','win_perc']].copy()
+        df_p1['player_id'] = [player_id]*df_p1.shape[0]
+        df_p1 = df_p1.drop(columns=['winner_id','loser_id'])
         ratios = pd.concat([df_p1,ratios])
-
-        last_ratio = df_p1.iloc[-1]['win_loss_ratio']
-        last_rank = get_last_rank(player_id,rankings)
-
-        players_dict[player_name] = [player_id,last_rank,last_ratio]
-
-
-    matches = matches.merge(ratios,left_on=['id','winner_id'],right_on=['id','player_id'],how='left')
-    matches = matches.rename(columns={'win_loss_ratio':'winner_win_loss_ratio','win_perc':'winner_win_perc'})
-    matches = matches.drop(columns=['player_id'])
-
-    matches = matches.merge(ratios,left_on=['id','loser_id'],right_on=['id','player_id'],how='left')
-    matches = matches.rename(columns={'win_loss_ratio':'loser_win_loss_ratio','win_perc':'loser_win_perc'})
-    matches = matches.drop(columns=['player_id'])
 
     rounds = list(matches['round_level'].unique())
 
     print('More Info Complete!')
 
-    return players_dict, tournaments_dict, rounds, matches
+    return ratios, rounds
 
 if __name__=='__main__':
     matches, rankings, players = data_import()
-    # print(matches.info())
-    # print(matches.head(5))
-    # print(rankings.head(5))
-    # print(players.head(5))
-    # players_dict, tournaments_dict, rounds, matches = get_more_info(matches,rankings,players)
+    tournaments_dict = get_tournaments_info(matches)
+    players_dict = get_players_info(players,rankings)
+    df_ratios,rounds = get_kpis(matches,players)
 
-    print(matches)
-    
+    id = get_player_id_by_name('Carlos Alcaraz',players)
+    print(players_dict[id])
+    print(df_ratios[df_ratios['player_id']==id])
+    print(tournaments_dict['Australian Open']) 
+
     # print(tournaments_dict)
     # print(tournaments_dict.keys())
     # tournament_surface = tournaments_dict['Roland Garros'][1]

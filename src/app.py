@@ -1,22 +1,25 @@
 # If you prefer to run the code online instead of on your computer click:
 # https://github.com/Coding-with-Adam/Dash-by-Plotly#execute-code-in-browser
 
-from dash import Dash, dcc, Output, Input, dash_table,html,get_asset_url          # pip install dash
-import dash_bootstrap_components as dbc  # pip install dash-bootstrap-components
+from dash import Dash, dcc, Output, Input, dash_table,html,get_asset_url
+import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.io as pio
 
-from data_prep import data_import, get_more_info
-from plotting_functions import historical_h2h, tournament_performance,win_loss_ratio,rank_evol, ratio_evol, tournament_predictor
+from data_prep import data_import, get_players_info,get_tournaments_info,get_player_id_by_name, get_kpis
+from plotting_functions import historical_h2h, tournament_performance,win_loss_ratio, rank_evol, ratio_evol
 
-from model_predict import run_predictor_tournament
 from web_scraper import get_current_ranking_photo
 
 pio.templates.default = "plotly_dark"
 
 # incorporate data into app
-matches,rankings,players = data_import()
-players_dict, tourn_dict, rounds_list, matches = get_more_info(matches,rankings,players)
+matches, rankings, players = data_import()
+tourn_dict = get_tournaments_info(matches)
+players_dict = get_players_info(players,rankings)
+df_ratios,rounds = get_kpis(matches,players)
+
+players_names = sorted([p['name'] for k,p in players_dict.items()])
 features_table = ['tourney_date','tourney_name','tourney_points','surface','round','winner_name','winner_rank','loser_name','loser_rank','score']
 
 # Build your components
@@ -58,29 +61,25 @@ mytable_h2h = dash_table.DataTable(
         data = matches[features_table].to_dict('records'),
         style_header={
             'backgroundColor': 'rgb(50, 50, 50)',
-            'color': 'white'
+            'color': 'white',
+            'textAlign':'center'
         },
         style_data={
             'backgroundColor': 'rgb(30, 30, 30)',
-            'color': 'white'
+            'color': 'white',
+            'textAlign':'center'
         },
+        style_as_list_view=True,
 )
 
-# mygraph_predict = dcc.Graph(id='predict_graph',figure={})
-# text_tournament = dcc.Markdown(id='tournament_info',children='')
 
-dropdown_p1 = html.Div(dcc.Dropdown(options=list(players_dict.keys()),
+dropdown_p1 = html.Div(dcc.Dropdown(options=list(players_names),
                         value='Carlos Alcaraz',  # initial value displayed when page first loads
-                        clearable=False,id='p1_dd',placeholder='Select a Player'))
+                        clearable=False, id='p1_dd',placeholder='Select a Player'))
 
-dropdown_p2 = html.Div(dcc.Dropdown(options=list(players_dict.keys()),
+dropdown_p2 = html.Div(dcc.Dropdown(options=list(players_names),
                         value='Rafael Nadal',  # initial value displayed when page first loads
-                        clearable=False,id='p2_dd',placeholder='Select a Player'))
-
-
-# dropdown_tournament = html.Div(dcc.Dropdown(options=list(tourn_dict.keys()),
-#                         value = 'Roland Garros',
-#                         clearable=False,id='tournament_dd',placeholder='Select a Tournament'))
+                        clearable=False, id='p2_dd',placeholder='Select a Player'))
 
 
 app.layout = dbc.Container([
@@ -117,20 +116,8 @@ app.layout = dbc.Container([
         dbc.Col([mygraph_h2h], width=12)
     ], justify='center'),
     dbc.Row([
-        dbc.Col([mytable_h2h], width=12)
+        dbc.Col([mytable_h2h], width=8)
     ], justify='center'),
-    # dbc.Row([
-    #     dbc.Col([mytitle3], width=12)
-    # ], justify='center',),
-    # dbc.Row([
-    #     dbc.Col([dropdown_tournament], width=4)
-    # ], justify='left'),
-    # dbc.Row([
-    #     dbc.Col([text_tournament], width=12)
-    # ], justify='center'),
-    # dbc.Row([
-    #     dbc.Col([mygraph_predict], width=12)
-    # ], justify='center'),
 
 ], fluid=True)
 
@@ -147,54 +134,39 @@ app.layout = dbc.Container([
     Output('ratio_evol', component_property='figure'),
     Output('h2h_graph', component_property='figure'),
     Output('h2h_table', component_property='data'),
-    # Output('tournament_info', component_property='children'),
-    # Output('predict_graph', component_property='figure')
     ],
     [Input('p1_dd', component_property='value'),
     Input('p2_dd', component_property='value'),
-    # Input('tournament_dd', component_property='value')
     ]
 )
 
 def update_graphs(p1_name,p2_name):
+    p1_id = get_player_id_by_name(p1_name,players_dict)
+    p2_id = get_player_id_by_name(p2_name,players_dict)
 
-# def update_graphs(p1_name,p2_name,tournament_name):
-    p1_id = players_dict[p1_name][0]
-    p2_id = players_dict[p2_name][0]
+    p1 = players_dict[p1_id]
+    p2 = players_dict[p2_id]
 
-    p1_wl = win_loss_ratio(matches,p1_id,p1_name)
-    p2_wl = win_loss_ratio(matches,p2_id,p2_name)
+    p1_wl = win_loss_ratio(matches,p1)
+    p2_wl = win_loss_ratio(matches,p2)
 
-    p1_tp = tournament_performance(matches,p1_id,p1_name)
-    p2_tp = tournament_performance(matches,p2_id,p2_name)
+    p1_tp = tournament_performance(matches,p1)
+    p2_tp = tournament_performance(matches,p2)
 
-    rank = rank_evol(rankings,p1_id,p2_id)
-    ratio = ratio_evol(matches,p1_id,p2_id)
+    rank = rank_evol(rankings,p1,p2)
+    ratio = ratio_evol(df_ratios,p1,p2)
 
-    h2h_plot, h2h_table = historical_h2h(matches,p1_id,p1_name,p2_id,p2_name)
+    h2h_plot, h2h_table = historical_h2h(matches,p1,p2)
     h2h_table = h2h_table[features_table].to_dict('records')
 
-    p1_img,p2_img = get_current_ranking_photo(p1_name,p2_name)
+    p1_img,p2_img = get_current_ranking_photo(p1,p2)
     if p1_img == None:
         p1_img = '../assets/img/tennis_logo.png'
     if p2_img==None:
         p2_img = '../assets/img/tennis_logo.png'
 
-
-    # tourn_info = tourn_dict[tournament_name]
-    # tourn_info.append(tournament_name)
-    
-    # df_result = run_predictor_tournament(p1_name,p2_name,players_dict,tourn_info,rounds_list)
-    # df_result['winner_name'] = np.where(df_result['winner_id']==p1_id, p1_name, p2_name)
-    # predict_result = tournament_predictor(df_result)
-
-    # tournament_surface = tourn_dict[tournament_name][0]
-    # tournament_points = tourn_dict[tournament_name][1]
-    # tournament_info = f'Surface: {tournament_surface} | Points: {tournament_points} \n Rank P1 {p1_name}: {p1_rank} | Rank P2 {p2_name}: {p2_rank}'
-
     return [p1_img,p2_img,p1_wl,p2_wl,p1_tp,p2_tp,rank,ratio,h2h_plot,h2h_table]
 
-    # return [p1_img,p2_img,p1_wl,p2_wl,p1_tp,p2_tp,rank,ratio,h2h_plot,h2h_table,tournament_info, predict_result]
 
 # Run app
 if __name__=='__main__':
