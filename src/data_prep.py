@@ -46,7 +46,7 @@ def select_by_name(db, sql, name):
         cur = conn.cursor()
         with open(sql, 'r') as fd:
             command = fd.read().format(name)
-        print(command)
+        # print(command)
         
         cur.execute(command)        
         df = pd.read_sql(command, conn)

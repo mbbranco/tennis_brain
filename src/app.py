@@ -15,12 +15,6 @@ from web_scraper import get_current_ranking_photo
 
 pio.templates.default = "plotly_dark"
 
-# incorporate data into app
-# matches, rankings, players = data_import_db()
-# tourn_dict = get_tournaments_info(matches)
-# players_dict = get_players_info(players,rankings)
-# df_ratios,rounds = get_kpis(matches,players)
-
 
 db_loc = r'..\database\tennis_atp.db'
 # start by reading matches
@@ -161,6 +155,7 @@ def update_graphs(p1_name,p2_name):
     p1_results['player_name'] = p1_name
     p2_results['player_name'] = p2_name
     results = pd.concat([p1_results,p2_results])
+    print('results')
 
     # get rankings for player by player name and calculate KPIs
     p1_ranks = select_by_name(db_loc,r'..\database\get_rank_evol.sql',p1_name)
@@ -169,29 +164,37 @@ def update_graphs(p1_name,p2_name):
     p1_ranks['player_name'] = p1_name
     p2_ranks['player_name'] = p2_name
     ranks = pd.concat([p1_ranks,p2_ranks])
+    print('ranks')
 
-    p1_wl = win_loss_ratio(p1_results)
-    p2_wl = win_loss_ratio(p2_results)
+    p1_wl,df = win_loss_ratio(p1_results)
+    p2_wl,df = win_loss_ratio(p2_results)
+    print('wl')
 
     p1_tp = tournament_performance(p1_results)
     p2_tp = tournament_performance(p2_results)
+    print('tp')
 
     rank = rank_evol(ranks)
+    print('rank_evol')
 
     ratio = ratio_evol(results)
+    print('ratio_evol')
 
     # get h2h matches
     list_names = (p1_name,p2_name)
     h2h = select_by_name(db_loc,r'..\database\get_h2h.sql',list_names)
+    print('h2h')
 
     h2h_plot, h2h_table = historical_h2h(h2h)
     h2h_table = h2h_table[features_table].to_dict('records')
+    print('h2h_tbl')
 
     p1_img,p2_img = get_current_ranking_photo(p1_name,p2_name)
     if p1_img == None:
         p1_img = '../assets/img/tennis_logo.png'
     if p2_img==None:
         p2_img = '../assets/img/tennis_logo.png'
+    print('photos')
 
     return [p1_img,p2_img,p1_wl,p2_wl,p1_tp,p2_tp,rank,ratio,h2h_plot,h2h_table]
 

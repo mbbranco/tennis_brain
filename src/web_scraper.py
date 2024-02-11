@@ -24,33 +24,16 @@ def get_current_ranking_photo(p1_name,p2_name):
 
     if p1_name in players:
         p1_index = players.index(p1_name)
-        print(p1_index)
         p1_link = get_img_link(links[p1_index])
-        print(p1_link)
-        # p1_rank = p1_index+1
 
     if p2_name in players:
         p2_index = players.index(p2_name)
-        # print(p2_index)
         p2_link = get_img_link(links[p2_index])
-        # print(p2_link)
-        # p2_rank = p2_index+1
 
     return p1_link, p2_link
 
 
 def get_updated_ranking():
-    # rank_start = list(range(0,1601,100))
-    # rank_finish = [r + 100 for r in rank_start]
-
-    # rank_range = []
-    # for i in range(len(rank_start)):
-    #     rank_range.append(f'{rank_start[i]}-{rank_finish[i]}')
-    # rank_range = rank_range[0:2]
-
-    # today_date = date.today()
-    # date_ranking = today_date - timedelta(days=today_date.weekday())
-
     opener = urllib.request.build_opener()
     opener.addheaders = [('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1941.0 Safari/537.36')]
     urllib.request.install_opener(opener)
@@ -60,7 +43,6 @@ def get_updated_ranking():
     rank_range = ['0-5000']
     for r in rank_range:
         url = f'https://www.atptour.com/en/rankings/singles?rankRange={r}'
-        #url = f'https://www.atptour.com/en/rankings/singles?rankRange={r}&rankDate={date_ranking}'
         info = opener.open(url).read()
         soup = BeautifulSoup(info, "html.parser")
         players, links = scrape_it(soup)

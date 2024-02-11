@@ -2,7 +2,7 @@ WITH id AS (
     SELECT 
         player_id
     FROM players_view
-    WHERE player_name = 'Carlos Alcaraz'
+    WHERE player_name = "{}"
 )
 
 SELECT

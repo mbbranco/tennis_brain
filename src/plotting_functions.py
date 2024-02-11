@@ -68,7 +68,7 @@ def ratio_evol(ratios):
     return plot
 
 def rank_evol(rankings):
-    start_date = rankings.groupby(['player_id'])['ranking_date'].min().max()
+    start_date = rankings.groupby(['player'])['ranking_date'].min().max()
     rankings = rankings[rankings['ranking_date']>=start_date]
     rankings = rankings.sort_values(by='ranking_date')
     
