@@ -3,10 +3,12 @@
 
 from dash import Dash, dcc, Output, Input, dash_table,html,get_asset_url
 import dash_bootstrap_components as dbc
+import pandas as pd
 import plotly.express as px
 import plotly.io as pio
+from plotly.subplots import make_subplots
 
-from data_prep import data_import, get_players_info,get_tournaments_info,get_player_id_by_name, get_kpis
+from data_prep import data_import_db, prep_matches, select_by_name
 from plotting_functions import historical_h2h, tournament_performance,win_loss_ratio, rank_evol, ratio_evol
 
 from web_scraper import get_current_ranking_photo
@@ -14,12 +16,23 @@ from web_scraper import get_current_ranking_photo
 pio.templates.default = "plotly_dark"
 
 # incorporate data into app
-matches, rankings, players = data_import()
-tourn_dict = get_tournaments_info(matches)
-players_dict = get_players_info(players,rankings)
-df_ratios,rounds = get_kpis(matches,players)
+# matches, rankings, players = data_import_db()
+# tourn_dict = get_tournaments_info(matches)
+# players_dict = get_players_info(players,rankings)
+# df_ratios,rounds = get_kpis(matches,players)
 
-players_names = sorted([p['name'] for k,p in players_dict.items()])
+
+db_loc = r'..\database\tennis_atp.db'
+# start by reading matches
+df_temp = data_import_db(db_loc,r'..\database\matches_create.sql')
+# transform matches and return view
+df_matches = prep_matches(df_temp,db_loc,r'..\database\matches_view.sql')
+# read players and create view
+df_players = data_import_db(db_loc,r'..\database\players.sql')
+# read rankings and create view
+df_rankings = data_import_db(db_loc,r'..\database\rankings.sql')
+
+players_names = list(df_players['player_name'].unique())
 features_table = ['tourney_date','tourney_name','tourney_points','surface','round','winner_name','winner_rank','loser_name','loser_rank','score']
 
 # Build your components
@@ -57,8 +70,8 @@ mytext_h2h = dcc.Markdown(id='h2h_info',children='')
 
 mytable_h2h = dash_table.DataTable(
         id='h2h_table',
-        columns = [{"name": i, "id": i} for i in matches[features_table]],
-        data = matches[features_table].to_dict('records'),
+        columns = [{"name": i, "id": i} for i in df_matches[features_table]],
+        data = df_matches[features_table].to_dict('records'),
         style_header={
             'backgroundColor': 'rgb(50, 50, 50)',
             'color': 'white',
@@ -141,25 +154,40 @@ app.layout = dbc.Container([
 )
 
 def update_graphs(p1_name,p2_name):
-    p1_id = get_player_id_by_name(p1_name,players_dict)
-    p2_id = get_player_id_by_name(p2_name,players_dict)
+    # get matches for player by player name and calculate KPIs
+    p1_results = select_by_name(db_loc,r'..\database\player_matches_kpis.sql',p1_name)
+    p2_results = select_by_name(db_loc,r'..\database\player_matches_kpis.sql',p2_name)
 
-    p1 = players_dict[p1_id]
-    p2 = players_dict[p2_id]
+    p1_results['player_name'] = p1_name
+    p2_results['player_name'] = p2_name
+    results = pd.concat([p1_results,p2_results])
 
-    p1_wl = win_loss_ratio(matches,p1)
-    p2_wl = win_loss_ratio(matches,p2)
+    # get rankings for player by player name and calculate KPIs
+    p1_ranks = select_by_name(db_loc,r'..\database\get_rank_evol.sql',p1_name)
+    p2_ranks = select_by_name(db_loc,r'..\database\get_rank_evol.sql',p2_name)
 
-    p1_tp = tournament_performance(matches,p1)
-    p2_tp = tournament_performance(matches,p2)
+    p1_ranks['player_name'] = p1_name
+    p2_ranks['player_name'] = p2_name
+    ranks = pd.concat([p1_ranks,p2_ranks])
 
-    rank = rank_evol(rankings,p1,p2)
-    ratio = ratio_evol(df_ratios,p1,p2)
+    p1_wl = win_loss_ratio(p1_results)
+    p2_wl = win_loss_ratio(p2_results)
 
-    h2h_plot, h2h_table = historical_h2h(matches,p1,p2)
+    p1_tp = tournament_performance(p1_results)
+    p2_tp = tournament_performance(p2_results)
+
+    rank = rank_evol(ranks)
+
+    ratio = ratio_evol(results)
+
+    # get h2h matches
+    list_names = (p1_name,p2_name)
+    h2h = select_by_name(db_loc,r'..\database\get_h2h.sql',list_names)
+
+    h2h_plot, h2h_table = historical_h2h(h2h)
     h2h_table = h2h_table[features_table].to_dict('records')
 
-    p1_img,p2_img = get_current_ranking_photo(p1,p2)
+    p1_img,p2_img = get_current_ranking_photo(p1_name,p2_name)
     if p1_img == None:
         p1_img = '../assets/img/tennis_logo.png'
     if p2_img==None:

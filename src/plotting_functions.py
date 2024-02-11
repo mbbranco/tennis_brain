@@ -1,160 +1,175 @@
+import time
 import plotly.express as px
 import numpy as np
 import pandas as pd
-from data_prep import data_import, get_tournaments_info, get_players_info, get_player_id_by_name, get_kpis
+# from data_prep import data_import, get_tournaments_info, get_players_info, get_player_id_by_name, get_kpis
+from data_prep import data_import_db, select_by_name,prep_matches
 
-
-def win_loss_ratio(df,player):
-    player_id = player['player_id']
-    player_name = player['name']
-
-    df_p1 = df[(df['winner_id']==player_id) | (df['loser_id']==player_id)].copy()
-    df_p1['win_loss'] =  np.where(df_p1['winner_id']==player_id,'Win','Loss')
-    df_p1['win_loss_val'] =  np.where(df_p1['winner_id']==player_id,1,-1)
-    df_p1 = df_p1.sort_values(by='surface')
-
+def win_loss_ratio(df):
     txt = ''
-    for surface,group in df_p1.groupby('surface'):
-        wins = group[group['win_loss_val']==1]['win_loss_val'].sum()
-        losses = -group[group['win_loss_val']==-1]['win_loss_val'].sum()
+    for surface,group in df.groupby('surface'):
+        wins = group['win'].sum()
+        losses = group['loss'].sum()
         txt += f'{surface}: {wins/losses:.2f} | '
 
-    plot = px.bar(data_frame=df_p1,x='surface',y='win_loss_val',color='win_loss',\
+    wl_ratio_ever = df['win_loss_ratio_start'].iloc[-1]
+    wl_ratio_last_10 = df['win_loss_ratio_last10'].iloc[-1]
+    player_name = df['player_name'].iloc[0]
+
+    txt_wl = f'Win Loss Ratio for {player_name} || Ever: {wl_ratio_ever:.2f} | Last 10 Matches: {wl_ratio_last_10:.2f} | '
+    txt_title = txt_wl + txt
+
+    df['win_loss_val'] = np.where(df['win']==1,1,-1)
+    df['win_loss'] = np.where(df['win']==1,'Win','Loss')
+
+    plot = px.bar(data_frame=df,x='surface',y='win_loss_val',color='win_loss',\
         color_discrete_map={
         'Win': 'green',
         'Loss': 'red'
         },\
-        title=f"Win/Loss Ratio for {player_name}: {txt}",\
+        title=txt_title,\
         hover_data={'tourney_name':True,'tourney_date':True})
 
-    return plot
+    df['player_name'] = player_name
+    return plot, df
 
-def tournament_performance(df,player):
-    player_id = player['player_id']
-    player_name = player['name']
+def tournament_performance(df):
+    player_name = df['player_name'].iloc[0]
 
-    df_p1 = df[(df['winner_id']==player_id) | (df['loser_id']==player_id)].copy().reset_index()
-    df_p1['result'] = np.where(df_p1['winner_id']==player_id,1,0)
-
-    idx = df_p1.groupby(['tourney_year','tourney_name','tourney_points','surface'])['round_level'].idxmin()
-    last_rounds = df_p1.loc[idx].sort_values(by='tourney_date')
+    idx = df.groupby(['tourney_year','tourney_name','tourney_points','surface'])['round_level'].idxmin()
+    last_rounds = df.loc[idx].sort_values(by='tourney_date')
 
     max_round = df['round_level'].max()
-    last_rounds['tourney_winner'] = np.where((last_rounds['round_level']==0)&(last_rounds['winner_id']==player_id),'Winner',last_rounds['round'])
-    last_rounds['tourney_winner'] = np.where((last_rounds['round_level']==0)&(last_rounds['winner_id']!=player_id),'Runner-Up',last_rounds['tourney_winner'])
+    last_rounds['tourney_winner'] = np.where((last_rounds['round_level']==0)&(last_rounds['win']==1),'Winner',last_rounds['round'])
+    last_rounds['tourney_winner'] = np.where((last_rounds['round_level']==0)&(last_rounds['win']!=1),'Runner-Up',last_rounds['tourney_winner'])
 
     last_rounds['round_level'] = max_round - last_rounds['round_level']
 
     color_mapping = {'Clay':'#FFA15A','Grass':'#00CC96','Hard':'#636EFA','Carpet':'#AB63FA'}
+
     plot = px.bar(data_frame=last_rounds,x='tourney_date',y='round_level',color='surface',title=f"Tournament Performance for {player_name}",text='tourney_winner',\
-            hover_data={'tourney_name':True,'tourney_points':True,'winner_name':True},color_discrete_map=color_mapping)
+            hover_data={'tourney_name':True,'tourney_points':True},color_discrete_map=color_mapping)
 
     plot.update_xaxes(type='category')
     plot.update_xaxes(categoryorder='category ascending') 
-    plot.add_hline(y=7, line_width=3, line_dash="dash", line_color="gold")
+    plot.add_hline(y=6, line_width=3, line_dash="dash", line_color="gold")
     
     return plot
 
+def ratio_evol(ratios):
+    start_date = ratios.groupby(['player_id'])['tourney_date'].min().max()
+    ratios = ratios[ratios['tourney_date']>=start_date]
+    ratios = ratios[['tourney_date','player_id','player_name','win_loss_ratio_start']].sort_values(by='tourney_date')
 
-def ratio_evol(ratios,player_1,player_2):
-    p1_id = player_1['player_id']
-    p2_id = player_2['player_id']
-    p1_name = player_1['name']
-    p2_name = player_2['name']
-
-    ratios_all = ratios[ratios['player_id'].isin([p1_id,p2_id])].copy()
-    ratios_all['player_name'] = ratios_all['player_id'].apply(lambda x: p1_name if x==p1_id else p2_name)
-
-    ratios_all = ratios_all[['tourney_date','player_id','player_name','win_loss_ratio']]
-    # ratios_all = ratios_all[['tourney_date','player_id','player_name','win_loss_ratio','win_loss_ratio_roll']]
-
-    start_date = ratios_all.groupby(['player_id'])['tourney_date'].min().max()
-
-    ratios_all = ratios_all[ratios_all['tourney_date']>=start_date]
-
-    ratios_all = ratios_all.sort_values(by='tourney_date')
-
-    plot = px.line(data_frame=ratios_all,x='tourney_date',y='win_loss_ratio',color='player_name',title='W/L Ratio Evolution')
+    plot = px.line(data_frame=ratios,x='tourney_date',y='win_loss_ratio_start',color='player_name',title='W/L Ratio Evolution')
     plot.update_traces(mode="markers+lines", hovertemplate=None)
     plot.update_layout(hovermode="x")
-    
-    # plot_roll = px.line(data_frame=ratios_all,x='tourney_date',y='win_loss_ratio_roll',color='player_name',title='W/L Ratio Evolution - Rolling 10 Weeks')
-    # plot_roll.update_traces(mode="markers+lines", hovertemplate=None)
-    # plot_roll.update_layout(hovermode="x")
 
     return plot
 
-def rank_evol(rankings,player_1,player_2):
-    p1_id = player_1['player_id']
-    p2_id = player_2['player_id']
-
-    df_rank = rankings[(rankings['player']==p1_id)|(rankings['player']==p2_id)].copy()
-    df_rank = df_rank.sort_values(by='ranking_date')
-    df_aux = df_rank.groupby(['player'])['ranking_date'].min().reset_index()
-    start_date = df_aux['ranking_date'].max()
-    df_rank = df_rank[df_rank['ranking_date']>=start_date]
-    plot = px.line(data_frame=df_rank,x='ranking_date',y='rank',color='name',title='Rank Evolution')
+def rank_evol(rankings):
+    start_date = rankings.groupby(['player_id'])['ranking_date'].min().max()
+    rankings = rankings[rankings['ranking_date']>=start_date]
+    rankings = rankings.sort_values(by='ranking_date')
+    
+    plot = px.line(data_frame=rankings,x='ranking_date',y='rank',color='player',title='Rank Evolution')
     plot.update_traces(mode="markers+lines", hovertemplate=None)
     plot.update_layout(hovermode="x")
     plot.update_yaxes(autorange="reversed")
     
     return plot
 
-def historical_h2h(df,player_1,player_2):
-    p1_id = player_1['player_id']
-    p2_id = player_2['player_id']
-    p1_name = player_1['name']
-    p2_name = player_2['name']
+def historical_h2h(df):
+    p1_wins = df['win_p1'].sum()
+    p2_wins = df['win_p2'].sum()
+    p1_name = df[df['win_p1']==1]['winner_name'].iloc[0]
+    p2_name = df[df['win_p2']==1]['winner_name'].iloc[0]
 
-    df_h2h = df[((df['winner_id']==p1_id)&(df['loser_id']==p2_id)) | ((df['winner_id']==p2_id)&(df['loser_id']==p1_id))]
+    nr_matches = df.shape[0]
 
-    wins_p1 = df_h2h[df_h2h['winner_id']==p1_id].shape[0]
-    wins_p2 = df_h2h[df_h2h['winner_id']==p2_id].shape[0]
-
-    nr_matches = df_h2h.shape[0]
-
-    if wins_p1>wins_p2:
-        text = f'{p1_name} is currently winning the H2H with {wins_p1} wins out of {nr_matches} matches against {p2_name}'
-    elif wins_p1==wins_p2:
+    if p1_wins > p2_wins:
+        text = f'{p1_name} is currently winning the H2H with {p1_wins} wins out of {nr_matches} matches against {p2_name}'
+    elif p1_wins == p2_wins:
         text = f'{p1_name} and {p2_name} are currently tied on the H2H after {nr_matches} matches between the both.'
     else:
-        text = f'{p2_name} is currently winning the H2H with {wins_p2} wins out of {nr_matches} matches against {p1_name}'
+        text = f'{p2_name} is currently winning the H2H with {p2_wins} wins out of {nr_matches} matches against {p1_name}'
 
     color_mapping = {'Clay':'#FFA15A','Grass':'#00CC96','Hard':'#636EFA','Carpet':'#AB63FA'}
 
-    plot = px.bar(df_h2h,x='surface',color='winner_name',text='tourney_name',hover_data={'tourney_points':True,'round':True,'tourney_date':True},title=f'H2H - {text} ',color_discrete_map=color_mapping)
+    plot = px.bar(df,x='surface',color='winner_name',text='tourney_name',hover_data={'tourney_points':True,'round':True,'tourney_date':True},title=f'H2H - {text} ',color_discrete_map=color_mapping)
 
-    return plot, df_h2h
+    return plot, df
 
-def tournament_predictor(df):
-    df['aux'] = 1
-    plot = px.bar(data_frame=df,x='round',y='aux',color='winner_name',title=f"Tournament Predictor",\
-            hover_data={'model':True,'precision':True,'recall':True})
-    
-    return plot
+def call_time(st,lt):
+    # get the end time
+    et = time.time()
+
+    # get the execution time
+    elapsed_time = et - st
+    task_time = et - lt
+    print('Execution time:', elapsed_time, 'seconds')
+    print('Step time:', task_time, 'seconds')
+    print()
+    return et
 
 if __name__=='__main__':
-    matches,rankings,players = data_import()
-    tournaments_dict = get_tournaments_info(matches)
-    players_dict = get_players_info(players,rankings)
-    df_ratios,rounds = get_kpis(matches,players)
+    db_loc = r'..\database\tennis_atp.db'
+    # # start by reading matches
+    # df_temp = data_import_db(db_loc,r'..\database\matches_create.sql')
+    # # transform matches and return view
+    # df_matches = prep_matches(df_temp,db_loc,r'..\database\matches_view.sql')
+    # # read players and create view
+    # df_players = data_import_db(db_loc,r'..\database\players.sql')
+    # # read rankings and create view
+    # df_rankings = data_import_db(db_loc,r'..\database\rankings.sql')
 
-    p1_id = get_player_id_by_name('Carlos Alcaraz', players_dict)
-    p2_id = get_player_id_by_name('Cameron Norrie', players_dict)
-    
-    p1 = players_dict[p1_id]
-    p2 = players_dict[p2_id]
+    st = time.time()
+    p1_name = 'Carlos Alcaraz'
+    p2_name = 'Novak Djokovic'
 
-    p = tournament_performance(matches,p1)
-    p.show()
-    p = win_loss_ratio(matches,p1)
-    p.show()
-    p = rank_evol(rankings,p1,p2)
-    p.show()
+    # get matches for player by player name and calculate KPIs
+    p1_results = select_by_name(db_loc,r'..\database\player_matches_kpis.sql',p1_name)
+    p2_results = select_by_name(db_loc,r'..\database\player_matches_kpis.sql',p2_name)
+    lt = call_time(st,st)
 
-    p = ratio_evol(df_ratios,p1,p2)
-    p.show()
+    p1_results['player_name'] = p1_name
+    p2_results['player_name'] = p2_name
+    results = pd.concat([p1_results,p2_results])
 
-    p,d = historical_h2h(matches,p1,p2)
+    lt = call_time(st,lt)
+
+    # get rankings for player by player name and calculate KPIs
+    p1_ranks = select_by_name(db_loc,r'..\database\get_rank_evol.sql',p1_name)
+    lt = call_time(st,lt)
+
+    p2_ranks = select_by_name(db_loc,r'..\database\get_rank_evol.sql',p2_name)
+    lt = call_time(st,lt)
+
+    p1_ranks['player_name'] = p1_name
+    p2_ranks['player_name'] = p2_name
+    ranks = pd.concat([p1_ranks,p2_ranks])
+    lt = call_time(st,lt)
+
+    list_names = (p1_name,p2_name)
+    h2h = select_by_name(db_loc,r'..\database\get_h2h.sql',list_names)
+    lt = call_time(st,lt)
+
+    p,d = win_loss_ratio(p1_results)
     p.show()
-    print(d)
+    lt = call_time(st,lt)
+
+    p = tournament_performance(p1_results)
+    p.show()
+    lt = call_time(st,lt)
+
+    rankings = rank_evol(ranks)
+    p.show()
+    lt = call_time(st,lt)
+
+    ratios = ratio_evol(results)
+    ratios.show()
+    lt = call_time(st,lt)
+
+    h2h,p = historical_h2h(h2h)
+    h2h.show()
+    lt = call_time(st,lt)

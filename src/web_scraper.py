@@ -1,7 +1,6 @@
 from bs4 import BeautifulSoup
 from datetime import date,timedelta
 import urllib.request
-from data_prep import get_players_info, data_import
 
 def get_img_link(link):
     opener = urllib.request.build_opener()
@@ -19,10 +18,7 @@ def get_img_link(link):
 
     return img_link
 
-def get_current_ranking_photo(p1,p2):
-    p1_name = p1['name']
-    p2_name = p2['name']
-
+def get_current_ranking_photo(p1_name,p2_name):
     players,links = get_updated_ranking()
     p1_link,p2_link = None,None
 
@@ -90,15 +86,8 @@ def scrape_it(soup):
 
 
 if __name__=='__main__':
-    # Cameron Norrie
-    p1_id = 111815
-    # Carlos Alcaraz
-    p2_id = 207989
+    p1_name = "Cameron Norrie"
+    p2_name = "Carlos Alcaraz"
 
-    matches,rankings,players = data_import()
-    players_dict = get_players_info(players,rankings)
-    p1 = players_dict[p1_id]
-    p2 = players_dict[p2_id]
-
-    p1_link,p2_link = get_current_ranking_photo(p1,p2)
+    p1_link,p2_link = get_current_ranking_photo(p1_name,p2_name)
     print(p1_link,p2_link)
