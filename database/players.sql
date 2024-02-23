@@ -12,7 +12,13 @@ SELECT
     ioc,
     height,
     SUBSTR(dob, 1, 4) || '-' || substr(dob, 5, 2) || '-' || substr(dob, 7, 2) as 'dob' 
-FROM players;
+FROM players
+WHERE player_id IN (
+    SELECT
+        DISTINCT player
+    FROM rankings_view
+    WHERE rank <=100
+);
 
 SELECT
     * 

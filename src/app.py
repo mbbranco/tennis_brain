@@ -1,33 +1,28 @@
 # If you prefer to run the code online instead of on your computer click:
 # https://github.com/Coding-with-Adam/Dash-by-Plotly#execute-code-in-browser
 
-from dash import Dash, dcc, Output, Input, dash_table,html,get_asset_url
+from dash import Dash, dcc, Output, Input, dash_table,html
 import dash_bootstrap_components as dbc
 import pandas as pd
-import plotly.express as px
 import plotly.io as pio
-from plotly.subplots import make_subplots
 
-from data_prep import data_import_db, prep_matches, select_by_name
+from data_prep import data_import_db, select_by_name
 from plotting_functions import historical_h2h, tournament_performance,win_loss_ratio, rank_evol, ratio_evol
-
-from web_scraper import get_current_ranking_photo
-
 pio.templates.default = "plotly_dark"
 
+db_loc = r'tennis_atp.db'
 
-db_loc = r'..\database\tennis_atp.db'
-# start by reading matches
-df_temp = data_import_db(db_loc,r'..\database\matches_create.sql')
-# transform matches and return view
-df_matches = prep_matches(df_temp,db_loc,r'..\database\matches_view.sql')
 # read players and create view
-df_players = data_import_db(db_loc,r'..\database\players.sql')
-# read rankings and create view
-df_rankings = data_import_db(db_loc,r'..\database\rankings.sql')
+df_players = data_import_db(db_loc,r'database_sql\get_players_view.sql')
+print('read players')
+# df_matches = data_import_db(db_loc,r'database_sql\get_matches_view.sql')
+# print('read matches')
+
 
 players_names = list(df_players['player_name'].unique())
+
 features_table = ['tourney_date','tourney_name','tourney_points','surface','round','winner_name','winner_rank','loser_name','loser_rank','score']
+df_matches = pd.DataFrame(columns=features_table)
 
 # Build your components
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
@@ -148,18 +143,26 @@ app.layout = dbc.Container([
 )
 
 def update_graphs(p1_name,p2_name):
+    print('start')
     # get matches for player by player name and calculate KPIs
-    p1_results = select_by_name(db_loc,r'..\database\player_matches_kpis.sql',p1_name)
-    p2_results = select_by_name(db_loc,r'..\database\player_matches_kpis.sql',p2_name)
+    p1_results = select_by_name(db_loc,r'database_sql\player_matches_kpis.sql',p1_name)
+    p2_results = select_by_name(db_loc,r'database_sql\player_matches_kpis.sql',p2_name)
 
     p1_results['player_name'] = p1_name
     p2_results['player_name'] = p2_name
     results = pd.concat([p1_results,p2_results])
     print('results')
 
+    p1 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p1_name)
+    p2 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p2_name)
+    print('player_info')
+
+    p1_id = p1['player_id'].iloc[0]
+    p2_id = p2['player_id'].iloc[0]
+
     # get rankings for player by player name and calculate KPIs
-    p1_ranks = select_by_name(db_loc,r'..\database\get_rank_evol.sql',p1_name)
-    p2_ranks = select_by_name(db_loc,r'..\database\get_rank_evol.sql',p2_name)
+    p1_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
+    p2_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p2_id)
 
     p1_ranks['player_name'] = p1_name
     p2_ranks['player_name'] = p2_name
@@ -182,18 +185,19 @@ def update_graphs(p1_name,p2_name):
 
     # get h2h matches
     list_names = (p1_name,p2_name)
-    h2h = select_by_name(db_loc,r'..\database\get_h2h.sql',list_names)
+    h2h = select_by_name(db_loc,r'database_sql\get_h2h.sql',list_names)
     print('h2h')
 
-    h2h_plot, h2h_table = historical_h2h(h2h)
+    h2h_plot, h2h_table = historical_h2h(h2h,p1_name,p2_name)
     h2h_table = h2h_table[features_table].to_dict('records')
     print('h2h_tbl')
 
-    p1_img,p2_img = get_current_ranking_photo(p1_name,p2_name)
-    if p1_img == None:
-        p1_img = '../assets/img/tennis_logo.png'
-    if p2_img==None:
-        p2_img = '../assets/img/tennis_logo.png'
+    p1_img = select_by_name(db_loc,r'database_sql\get_img.sql',p1_name)
+    p2_img = select_by_name(db_loc,r'database_sql\get_img.sql',p2_name)
+
+    p1_img = p1_img['photo_url'].iloc[0]
+    p2_img = p2_img['photo_url'].iloc[0]
+
     print('photos')
 
     return [p1_img,p2_img,p1_wl,p2_wl,p1_tp,p2_tp,rank,ratio,h2h_plot,h2h_table]
@@ -201,4 +205,4 @@ def update_graphs(p1_name,p2_name):
 
 # Run app
 if __name__=='__main__':
-    app.run_server(port=8051,debug=True, dev_tools_silence_routes_logging=True)   
+    app.run_server(port=8051,debug=False, dev_tools_silence_routes_logging=True)   

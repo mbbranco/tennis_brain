@@ -3,7 +3,7 @@ import plotly.express as px
 import numpy as np
 import pandas as pd
 # from data_prep import data_import, get_tournaments_info, get_players_info, get_player_id_by_name, get_kpis
-from data_prep import data_import_db, select_by_name,prep_matches
+from data_prep import select_by_name
 
 def win_loss_ratio(df):
     txt = ''
@@ -68,22 +68,20 @@ def ratio_evol(ratios):
     return plot
 
 def rank_evol(rankings):
-    start_date = rankings.groupby(['player'])['ranking_date'].min().max()
+    start_date = rankings.groupby(['player_name'])['ranking_date'].min().max()
     rankings = rankings[rankings['ranking_date']>=start_date]
     rankings = rankings.sort_values(by='ranking_date')
-    
-    plot = px.line(data_frame=rankings,x='ranking_date',y='rank',color='player',title='Rank Evolution')
+
+    plot = px.line(data_frame=rankings,x='ranking_date',y='rank',color='player_name',title='Rank Evolution')
     plot.update_traces(mode="markers+lines", hovertemplate=None)
     plot.update_layout(hovermode="x")
     plot.update_yaxes(autorange="reversed")
     
     return plot
 
-def historical_h2h(df):
-    p1_wins = df['win_p1'].sum()
-    p2_wins = df['win_p2'].sum()
-    p1_name = df[df['win_p1']==1]['winner_name'].iloc[0]
-    p2_name = df[df['win_p2']==1]['winner_name'].iloc[0]
+def historical_h2h(df,p1_name,p2_name):
+    p1_wins = df[(df['winner_name']==p1_name)|(df['loser_name']==p1_name)]['win_p1'].sum()
+    p2_wins = df[(df['winner_name']==p2_name)|(df['loser_name']==p2_name)]['win_p2'].sum()
 
     nr_matches = df.shape[0]
 
@@ -113,63 +111,76 @@ def call_time(st,lt):
     return et
 
 if __name__=='__main__':
-    db_loc = r'..\database\tennis_atp.db'
-    # # start by reading matches
-    # df_temp = data_import_db(db_loc,r'..\database\matches_create.sql')
-    # # transform matches and return view
-    # df_matches = prep_matches(df_temp,db_loc,r'..\database\matches_view.sql')
-    # # read players and create view
-    # df_players = data_import_db(db_loc,r'..\database\players.sql')
-    # # read rankings and create view
-    # df_rankings = data_import_db(db_loc,r'..\database\rankings.sql')
-
-    st = time.time()
+    db_loc = 'tennis_atp.db'
     p1_name = 'Carlos Alcaraz'
     p2_name = 'Novak Djokovic'
-
-    # get matches for player by player name and calculate KPIs
-    p1_results = select_by_name(db_loc,r'..\database\player_matches_kpis.sql',p1_name)
-    p2_results = select_by_name(db_loc,r'..\database\player_matches_kpis.sql',p2_name)
+    st = time.time()
     lt = call_time(st,st)
+
+    print('start')
+    # get matches for player by player name and calculate KPIs
+    p1_results = select_by_name(db_loc,r'database_sql\player_matches_kpis.sql',p1_name)
+    p2_results = select_by_name(db_loc,r'database_sql\player_matches_kpis.sql',p2_name)
+    lt = call_time(lt,st)
 
     p1_results['player_name'] = p1_name
     p2_results['player_name'] = p2_name
     results = pd.concat([p1_results,p2_results])
-
+    print('results')
     lt = call_time(st,lt)
 
-    # get rankings for player by player name and calculate KPIs
-    p1_ranks = select_by_name(db_loc,r'..\database\get_rank_evol.sql',p1_name)
-    lt = call_time(st,lt)
+    # p1 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p1_name)
+    # p2 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p2_name)
+    # print('player_info')
 
-    p2_ranks = select_by_name(db_loc,r'..\database\get_rank_evol.sql',p2_name)
-    lt = call_time(st,lt)
+    # p1_id = p1['player_id'].iloc[0]
+    # p2_id = p2['player_id'].iloc[0]
+    # lt = call_time(st,lt)
 
-    p1_ranks['player_name'] = p1_name
-    p2_ranks['player_name'] = p2_name
-    ranks = pd.concat([p1_ranks,p2_ranks])
-    lt = call_time(st,lt)
+    # # get rankings for player by player name and calculate KPIs
+    # p1_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
+    # p2_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p2_id)
 
-    list_names = (p1_name,p2_name)
-    h2h = select_by_name(db_loc,r'..\database\get_h2h.sql',list_names)
-    lt = call_time(st,lt)
+    # p1_ranks['player_name'] = p1_name
+    # p2_ranks['player_name'] = p2_name
+    # ranks = pd.concat([p1_ranks,p2_ranks])
+    # print('ranks')
+    # lt = call_time(st,lt)
 
-    p,d = win_loss_ratio(p1_results)
-    p.show()
-    lt = call_time(st,lt)
+    # p1_wl,df = win_loss_ratio(p1_results)
+    # p2_wl,df = win_loss_ratio(p2_results)
+    # print('wl')
+    # lt = call_time(st,lt)
 
-    p = tournament_performance(p1_results)
-    p.show()
-    lt = call_time(st,lt)
+    # p1_tp = tournament_performance(p1_results)
+    # p2_tp = tournament_performance(p2_results)
+    # print('tp')
+    # lt = call_time(st,lt)
 
-    rankings = rank_evol(ranks)
-    p.show()
-    lt = call_time(st,lt)
+    # rank = rank_evol(ranks)
+    # print('rank_evol')
+    # lt = call_time(st,lt)
 
-    ratios = ratio_evol(results)
-    ratios.show()
-    lt = call_time(st,lt)
+    # ratio = ratio_evol(results)
+    # print('ratio_evol')
+    # lt = call_time(st,lt)
 
-    h2h,p = historical_h2h(h2h)
-    h2h.show()
-    lt = call_time(st,lt)
+    # # get h2h matches
+    # list_names = (p1_name,p2_name)
+    # h2h = select_by_name(db_loc,r'database_sql\get_h2h.sql',list_names)
+    # print('h2h')
+    # lt = call_time(st,lt)
+
+    # h2h_plot, h2h_table = historical_h2h(h2h,p1_name,p2_name)
+    # h2h_table = h2h_table[features_table].to_dict('records')
+    # print('h2h_tbl')
+    # lt = call_time(st,lt)
+
+    # p1_img = select_by_name(db_loc,r'database_sql\get_img.sql',p1_name)
+    # p2_img = select_by_name(db_loc,r'database_sql\get_img.sql',p2_name)
+
+    # p1_img = p1_img['photo_url'].iloc[0]
+    # p2_img = p2_img['photo_url'].iloc[0]
+
+    # print('photos')
+    # lt = call_time(st,lt)
