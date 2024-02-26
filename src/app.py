@@ -6,7 +6,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.io as pio
 
-from data_prep import data_import_db, select_by_name
+from data_prep import data_import_db, select_by_name, select_by_name_fetch
 from plotting_functions import historical_h2h, tournament_performance,win_loss_ratio, rank_evol, ratio_evol
 pio.templates.default = "plotly_dark"
 
@@ -15,9 +15,6 @@ db_loc = r'tennis_atp.db'
 # read players and create view
 df_players = data_import_db(db_loc,r'database_sql\get_players_view.sql')
 print('read players')
-# df_matches = data_import_db(db_loc,r'database_sql\get_matches_view.sql')
-# print('read matches')
-
 
 players_names = list(df_players['player_name'].unique())
 
@@ -145,58 +142,57 @@ app.layout = dbc.Container([
 def update_graphs(p1_name,p2_name):
     print('start')
     # get matches for player by player name and calculate KPIs
-    p1_results = select_by_name(db_loc,r'database_sql\player_matches_kpis.sql',p1_name)
-    p2_results = select_by_name(db_loc,r'database_sql\player_matches_kpis.sql',p2_name)
+    # get matches for player by player name and calculate KPIs
+    p1_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p1_name)
+    p2_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p2_name)
+    results_dict = {p1_name:p1_results,p2_name:p2_results}
+    print('results')    
 
-    p1_results['player_name'] = p1_name
-    p2_results['player_name'] = p2_name
-    results = pd.concat([p1_results,p2_results])
-    print('results')
-
-    p1 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p1_name)
-    p2 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p2_name)
+    p1, col_names = select_by_name_fetch(db_loc,r'database_sql\get_player_info.sql',p1_name)
+    p2, col_names = select_by_name_fetch(db_loc,r'database_sql\get_player_info.sql',p2_name)
     print('player_info')
 
-    p1_id = p1['player_id'].iloc[0]
-    p2_id = p2['player_id'].iloc[0]
+    index_col = col_names.index('player_id')
 
-    # get rankings for player by player name and calculate KPIs
-    p1_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
-    p2_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p2_id)
+    p1_id = p1[0][index_col]
+    p2_id = p2[0][index_col]
 
-    p1_ranks['player_name'] = p1_name
-    p2_ranks['player_name'] = p2_name
-    ranks = pd.concat([p1_ranks,p2_ranks])
+        # get rankings for player by player name and calculate KPIs
+    p1_ranks,col_names_ranks = select_by_name_fetch(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
+    p2_ranks,col_names_ranks = select_by_name_fetch(db_loc,r'database_sql\get_rank_evol.sql',p2_id)
+    rankings_dict = {p1_name:p1_ranks,p2_name:p2_ranks}
     print('ranks')
-
-    p1_wl,df = win_loss_ratio(p1_results)
-    p2_wl,df = win_loss_ratio(p2_results)
+    
+    p1_wl, df = win_loss_ratio(results_dict,p1_name,col_names_res)
+    p2_wl, df = win_loss_ratio(results_dict,p2_name,col_names_res)
     print('wl')
 
-    p1_tp = tournament_performance(p1_results)
-    p2_tp = tournament_performance(p2_results)
+    p1_tp = tournament_performance(results_dict,p1_name,col_names_res)
+    p2_tp = tournament_performance(results_dict,p1_name,col_names_res)
     print('tp')
 
-    rank = rank_evol(ranks)
+    rank = rank_evol(rankings_dict,col_names_ranks)
     print('rank_evol')
 
-    ratio = ratio_evol(results)
+    ratio = ratio_evol(results_dict,col_names_res)
     print('ratio_evol')
 
     # get h2h matches
     list_names = (p1_name,p2_name)
-    h2h = select_by_name(db_loc,r'database_sql\get_h2h.sql',list_names)
+    h2h,col_names_h2h = select_by_name_fetch(db_loc,r'database_sql\get_h2h.sql',list_names)
     print('h2h')
 
-    h2h_plot, h2h_table = historical_h2h(h2h,p1_name,p2_name)
-    h2h_table = h2h_table[features_table].to_dict('records')
+    h2h_plot, h2h_table = historical_h2h(h2h,col_names_h2h,p1_name,p2_name)
+    h2h_table = h2h_table[col_names_h2h].to_dict('records')
     print('h2h_tbl')
 
-    p1_img = select_by_name(db_loc,r'database_sql\get_img.sql',p1_name)
-    p2_img = select_by_name(db_loc,r'database_sql\get_img.sql',p2_name)
+    p1_img,cols_img = select_by_name_fetch(db_loc,r'database_sql\get_img.sql',p1_name)
+    p2_img,cols_img = select_by_name_fetch(db_loc,r'database_sql\get_img.sql',p2_name)
 
-    p1_img = p1_img['photo_url'].iloc[0]
-    p2_img = p2_img['photo_url'].iloc[0]
+    index_col = cols_img.index('photo_url')
+
+    p1_img = p1_img[0][index_col]
+    p2_img = p2_img[0][index_col]
 
     print('photos')
 

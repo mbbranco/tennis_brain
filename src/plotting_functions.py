@@ -1,28 +1,32 @@
+import datetime
 import time
 import plotly.express as px
 import numpy as np
 import pandas as pd
 # from data_prep import data_import, get_tournaments_info, get_players_info, get_player_id_by_name, get_kpis
-from data_prep import select_by_name
+from data_prep import select_by_name,select_by_name_fetch
 
-def win_loss_ratio(df):
+def win_loss_ratio(dict,k,cols):
+    vals = dict[k]
+    df_results = pd.DataFrame(vals,columns=cols)
+
     txt = ''
-    for surface,group in df.groupby('surface'):
+    for surface,group in df_results.groupby('surface'):
         wins = group['win'].sum()
         losses = group['loss'].sum()
         txt += f'{surface}: {wins/losses:.2f} | '
 
-    wl_ratio_ever = df['win_loss_ratio_start'].iloc[-1]
-    wl_ratio_last_10 = df['win_loss_ratio_last10'].iloc[-1]
-    player_name = df['player_name'].iloc[0]
+    wl_ratio_ever = df_results['win_loss_ratio_start'].iloc[-1]
+    wl_ratio_last_10 = df_results['win_loss_ratio_last10'].iloc[-1]
+    player_name = k
 
     txt_wl = f'Win Loss Ratio for {player_name} || Ever: {wl_ratio_ever:.2f} | Last 10 Matches: {wl_ratio_last_10:.2f} | '
     txt_title = txt_wl + txt
 
-    df['win_loss_val'] = np.where(df['win']==1,1,-1)
-    df['win_loss'] = np.where(df['win']==1,'Win','Loss')
+    df_results['win_loss_val'] = np.where(df_results['win']==1,1,-1)
+    df_results['win_loss'] = np.where(df_results['win']==1,'Win','Loss')
 
-    plot = px.bar(data_frame=df,x='surface',y='win_loss_val',color='win_loss',\
+    plot = px.bar(data_frame=df_results,x='surface',y='win_loss_val',color='win_loss',\
         color_discrete_map={
         'Win': 'green',
         'Loss': 'red'
@@ -30,16 +34,17 @@ def win_loss_ratio(df):
         title=txt_title,\
         hover_data={'tourney_name':True,'tourney_date':True})
 
-    df['player_name'] = player_name
-    return plot, df
+    return plot, df_results
 
-def tournament_performance(df):
-    player_name = df['player_name'].iloc[0]
+def tournament_performance(dict,k,cols):
+    vals = dict[k]
+    df_perf = pd.DataFrame(vals,columns=cols)
+    player_name = k
 
-    idx = df.groupby(['tourney_year','tourney_name','tourney_points','surface'])['round_level'].idxmin()
-    last_rounds = df.loc[idx].sort_values(by='tourney_date')
+    idx = df_perf.groupby(['tourney_year','tourney_name','tourney_points','surface'])['round_level'].idxmin()
+    last_rounds = df_perf.loc[idx].sort_values(by='tourney_date')
 
-    max_round = df['round_level'].max()
+    max_round = df_perf['round_level'].max()
     last_rounds['tourney_winner'] = np.where((last_rounds['round_level']==0)&(last_rounds['win']==1),'Winner',last_rounds['round'])
     last_rounds['tourney_winner'] = np.where((last_rounds['round_level']==0)&(last_rounds['win']!=1),'Runner-Up',last_rounds['tourney_winner'])
 
@@ -56,9 +61,16 @@ def tournament_performance(df):
     
     return plot
 
-def ratio_evol(ratios):
-    start_date = ratios.groupby(['player_id'])['tourney_date'].min().max()
-    ratios = ratios[ratios['tourney_date']>=start_date]
+def ratio_evol(dict,cols):
+
+    df_ratios = pd.DataFrame()
+    for k, v in dict.items():
+        df_aux = pd.DataFrame(v,columns=cols)
+        df_aux['player_name'] = k
+        df_ratios = pd.concat([df_ratios,df_aux])
+
+    start_date = df_ratios.groupby(['player_id'])['tourney_date'].min().max()
+    ratios = df_ratios[df_ratios['tourney_date']>=start_date]
     ratios = ratios[['tourney_date','player_id','player_name','win_loss_ratio_start']].sort_values(by='tourney_date')
 
     plot = px.line(data_frame=ratios,x='tourney_date',y='win_loss_ratio_start',color='player_name',title='W/L Ratio Evolution')
@@ -67,9 +79,16 @@ def ratio_evol(ratios):
 
     return plot
 
-def rank_evol(rankings):
-    start_date = rankings.groupby(['player_name'])['ranking_date'].min().max()
-    rankings = rankings[rankings['ranking_date']>=start_date]
+def rank_evol(rankings_dict,col_names):
+
+    df_rankings = pd.DataFrame()
+    for k, v in rankings_dict.items():
+        df_aux = pd.DataFrame(v,columns=col_names)
+        df_aux['player_name'] = k
+        df_rankings = pd.concat([df_rankings,df_aux])
+
+    start_date = df_rankings.groupby(['player_name'])['ranking_date'].min().max()
+    rankings = df_rankings[df_rankings['ranking_date']>=start_date]
     rankings = rankings.sort_values(by='ranking_date')
 
     plot = px.line(data_frame=rankings,x='ranking_date',y='rank',color='player_name',title='Rank Evolution')
@@ -79,7 +98,9 @@ def rank_evol(rankings):
     
     return plot
 
-def historical_h2h(df,p1_name,p2_name):
+def historical_h2h(rows,cols,p1_name,p2_name):
+
+    df = pd.DataFrame(rows,columns=cols)
     p1_wins = df[(df['winner_name']==p1_name)|(df['loser_name']==p1_name)]['win_p1'].sum()
     p2_wins = df[(df['winner_name']==p2_name)|(df['loser_name']==p2_name)]['win_p2'].sum()
 
@@ -119,68 +140,75 @@ if __name__=='__main__':
 
     print('start')
     # get matches for player by player name and calculate KPIs
-    p1_results = select_by_name(db_loc,r'database_sql\player_matches_kpis.sql',p1_name)
-    p2_results = select_by_name(db_loc,r'database_sql\player_matches_kpis.sql',p2_name)
+    p1_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p1_name)
+    p2_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p2_name)
+    results_dict = {p1_name:p1_results,p2_name:p2_results}
+
+    print('results')    
     lt = call_time(lt,st)
 
-    p1_results['player_name'] = p1_name
-    p2_results['player_name'] = p2_name
-    results = pd.concat([p1_results,p2_results])
-    print('results')
+    p1, col_names = select_by_name_fetch(db_loc,r'database_sql\get_player_info.sql',p1_name)
+    p2, col_names = select_by_name_fetch(db_loc,r'database_sql\get_player_info.sql',p2_name)
+    print('player_info')
     lt = call_time(st,lt)
 
-    # p1 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p1_name)
-    # p2 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p2_name)
-    # print('player_info')
+    index_col = col_names.index('player_id')
 
-    # p1_id = p1['player_id'].iloc[0]
-    # p2_id = p2['player_id'].iloc[0]
-    # lt = call_time(st,lt)
+    p1_id = p1[0][index_col]
+    p2_id = p2[0][index_col]
 
-    # # get rankings for player by player name and calculate KPIs
-    # p1_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
-    # p2_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p2_id)
+    # get rankings for player by player name and calculate KPIs
+    p1_ranks,col_names_ranks = select_by_name_fetch(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
+    p2_ranks,col_names_ranks = select_by_name_fetch(db_loc,r'database_sql\get_rank_evol.sql',p2_id)
+    rankings_dict = {p1_name:p1_ranks,p2_name:p2_ranks}
+    print('ranks')
+    lt = call_time(st,lt) 
+    
+    p1_wl,df = win_loss_ratio(results_dict,p1_name,col_names_res)
+    p2_wl,df = win_loss_ratio(results_dict,p2_name,col_names_res)
+    print('wl')
+    lt = call_time(st,lt)
 
-    # p1_ranks['player_name'] = p1_name
-    # p2_ranks['player_name'] = p2_name
-    # ranks = pd.concat([p1_ranks,p2_ranks])
-    # print('ranks')
-    # lt = call_time(st,lt)
+    p1_tp = tournament_performance(results_dict,p1_name,col_names_res)
+    p2_tp = tournament_performance(results_dict,p1_name,col_names_res)
+    print('tp')
+    lt = call_time(st,lt)
 
-    # p1_wl,df = win_loss_ratio(p1_results)
-    # p2_wl,df = win_loss_ratio(p2_results)
-    # print('wl')
-    # lt = call_time(st,lt)
+    rank = rank_evol(rankings_dict,col_names_ranks)
+    print('rank_evol')
+    lt = call_time(st,lt)
 
-    # p1_tp = tournament_performance(p1_results)
-    # p2_tp = tournament_performance(p2_results)
-    # print('tp')
-    # lt = call_time(st,lt)
+    ratio = ratio_evol(results_dict,col_names_res)
+    print('ratio_evol')
+    lt = call_time(st,lt)
 
-    # rank = rank_evol(ranks)
-    # print('rank_evol')
-    # lt = call_time(st,lt)
+    # get h2h matches
+    list_names = (p1_name,p2_name)
+    h2h,col_names_h2h = select_by_name_fetch(db_loc,r'database_sql\get_h2h.sql',list_names)
+    print('h2h')
+    lt = call_time(st,lt)
 
-    # ratio = ratio_evol(results)
-    # print('ratio_evol')
-    # lt = call_time(st,lt)
+    h2h_plot, h2h_table = historical_h2h(h2h,col_names_h2h,p1_name,p2_name)
+    h2h_table = h2h_table[col_names_h2h].to_dict('records')
+    print('h2h_tbl')
+    lt = call_time(st,lt)
 
-    # # get h2h matches
-    # list_names = (p1_name,p2_name)
-    # h2h = select_by_name(db_loc,r'database_sql\get_h2h.sql',list_names)
-    # print('h2h')
-    # lt = call_time(st,lt)
+    p1_img,cols_img = select_by_name_fetch(db_loc,r'database_sql\get_img.sql',p1_name)
+    p2_img,cols_img = select_by_name_fetch(db_loc,r'database_sql\get_img.sql',p2_name)
 
-    # h2h_plot, h2h_table = historical_h2h(h2h,p1_name,p2_name)
-    # h2h_table = h2h_table[features_table].to_dict('records')
-    # print('h2h_tbl')
-    # lt = call_time(st,lt)
+    index_col = cols_img.index('photo_url')
 
-    # p1_img = select_by_name(db_loc,r'database_sql\get_img.sql',p1_name)
-    # p2_img = select_by_name(db_loc,r'database_sql\get_img.sql',p2_name)
+    p1_img = p1_img[0][index_col]
+    p2_img = p2_img[0][index_col]
 
-    # p1_img = p1_img['photo_url'].iloc[0]
-    # p2_img = p2_img['photo_url'].iloc[0]
+    print('photos')
+    lt = call_time(st,lt)
 
-    # print('photos')
-    # lt = call_time(st,lt)
+    # show plots
+    p1_wl.show()
+    p2_wl.show()
+    p1_tp.show()
+    p2_tp.show()
+    rank.show()
+    ratio.show()
+    h2h_plot.show()

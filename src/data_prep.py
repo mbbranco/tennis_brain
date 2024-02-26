@@ -25,7 +25,7 @@ def select_by_name(db, sql, name):
 
     cur.execute(command)  
     
-    # df = pd.read_sql(command, conn)
+    df = pd.read_sql(command, conn)
     conn.close()
 
     return df
@@ -41,15 +41,12 @@ def select_by_name_fetch(db,sql,name):
     cur.execute(command)  
     print('finish exec')
     
-
     rows = cur.fetchall()
-
-    for row in rows:
-        print(row)
+    col_names = [description[0] for description in cur.description]
 
     conn.close()
 
-    return rows
+    return rows,col_names
 
 
 def data_import_db(db,sql):
@@ -75,12 +72,13 @@ if __name__=='__main__':
     db_loc = r'tennis_atp.db'
 
     p1_name = 'Carlos Alcaraz'
+    p2_name = 'Novak Djokovic'
 
     p1 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p1_name)
     print(p1)
-    # p1 = select_by_name_fetch(db_loc,r'database_sql\get_player_info.sql',p1_name)
-    # print(p1)
-    # p2 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p1_name)
+    p2 = select_by_name(db_loc,r'database_sql\get_player_info.sql',p2_name)
+    print(p2)
+
     print('player_info')
 
     # p1_id = p1['player_id'].iloc[0]
