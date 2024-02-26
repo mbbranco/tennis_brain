@@ -36,32 +36,37 @@ def win_loss_ratio(dict,k,cols):
 
     return plot, df_results
 
-def tournament_performance(dict,k,cols):
+def tournament_performance(dict,k,cols,n_years=None):
     vals = dict[k]
     df_perf = pd.DataFrame(vals,columns=cols)
     player_name = k
 
+    if n_years != None:
+        first_date = pd.to_datetime(df_perf['tourney_date'].max()) - pd.DateOffset(years=n_years)
+        first_date = str(first_date)
+        df_perf = df_perf[df_perf['tourney_date']>=first_date]
+
     idx = df_perf.groupby(['tourney_year','tourney_name','tourney_points','surface'])['round_level'].idxmin()
     last_rounds = df_perf.loc[idx].sort_values(by='tourney_date')
 
-    max_round = df_perf['round_level'].max()
-    last_rounds['tourney_winner'] = np.where((last_rounds['round_level']==0)&(last_rounds['win']==1),'Winner',last_rounds['round'])
-    last_rounds['tourney_winner'] = np.where((last_rounds['round_level']==0)&(last_rounds['win']!=1),'Runner-Up',last_rounds['tourney_winner'])
+    last_rounds['last_round'] = np.where((last_rounds['round_level']==0)&(last_rounds['win']==1),'🏆Winner',last_rounds['round'])
+    last_rounds['last_round'] = np.where((last_rounds['round_level']==0)&(last_rounds['win']!=1),'🥈Runner-Up',last_rounds['last_round'])
 
-    last_rounds['round_level'] = max_round - last_rounds['round_level']
+    last_rounds['round_level'] = 7 - last_rounds['round_level']
 
     color_mapping = {'Clay':'#FFA15A','Grass':'#00CC96','Hard':'#636EFA','Carpet':'#AB63FA'}
 
-    plot = px.bar(data_frame=last_rounds,x='tourney_date',y='round_level',color='surface',title=f"Tournament Performance for {player_name}",text='tourney_winner',\
-            hover_data={'tourney_name':True,'tourney_points':True},color_discrete_map=color_mapping)
+    plot = px.bar(data_frame=last_rounds,x='tourney_date',y='round_level',color='surface',
+                    title=f"Tournament Performance for {player_name}",text='last_round',\
+                    hover_data={'tourney_name':True,'tourney_points':True},color_discrete_map=color_mapping)
 
     plot.update_xaxes(type='category')
     plot.update_xaxes(categoryorder='category ascending') 
-    plot.add_hline(y=6, line_width=3, line_dash="dash", line_color="gold")
+    plot.add_hline(y=7, line_width=3, line_dash="dash", line_color="gold")
     
     return plot
 
-def ratio_evol(dict,cols):
+def ratio_evol(dict,cols,n_years=None):
 
     df_ratios = pd.DataFrame()
     for k, v in dict.items():
@@ -69,8 +74,14 @@ def ratio_evol(dict,cols):
         df_aux['player_name'] = k
         df_ratios = pd.concat([df_ratios,df_aux])
 
-    start_date = df_ratios.groupby(['player_id'])['tourney_date'].min().max()
-    ratios = df_ratios[df_ratios['tourney_date']>=start_date]
+    if n_years == None:
+        first_date = df_ratios.groupby(['player_id'])['tourney_date'].min().max()
+    else:
+        start_date = df_ratios.groupby(['player_name'])['tourney_date'].max().min()
+        first_date = pd.to_datetime(start_date) - pd.DateOffset(years=n_years)
+        first_date = str(first_date)
+
+    ratios = df_ratios[df_ratios['tourney_date']>=first_date]
     ratios = ratios[['tourney_date','player_id','player_name','win_loss_ratio_start']].sort_values(by='tourney_date')
 
     plot = px.line(data_frame=ratios,x='tourney_date',y='win_loss_ratio_start',color='player_name',title='W/L Ratio Evolution')
@@ -79,7 +90,7 @@ def ratio_evol(dict,cols):
 
     return plot
 
-def rank_evol(rankings_dict,col_names):
+def rank_evol(rankings_dict,col_names,n_years=None):
 
     df_rankings = pd.DataFrame()
     for k, v in rankings_dict.items():
@@ -87,8 +98,14 @@ def rank_evol(rankings_dict,col_names):
         df_aux['player_name'] = k
         df_rankings = pd.concat([df_rankings,df_aux])
 
-    start_date = df_rankings.groupby(['player_name'])['ranking_date'].min().max()
-    rankings = df_rankings[df_rankings['ranking_date']>=start_date]
+    if n_years == None:
+        first_date = df_rankings.groupby(['player_name'])['ranking_date'].min().max()
+    else:
+        start_date = df_rankings.groupby(['player_name'])['ranking_date'].max().min()
+        first_date = pd.to_datetime(start_date) - pd.DateOffset(years=n_years)
+        first_date = str(first_date)
+
+    rankings = df_rankings[df_rankings['ranking_date']>=first_date]
     rankings = rankings.sort_values(by='ranking_date')
 
     plot = px.line(data_frame=rankings,x='ranking_date',y='rank',color='player_name',title='Rank Evolution')
@@ -169,8 +186,8 @@ if __name__=='__main__':
     print('wl')
     lt = call_time(st,lt)
 
-    p1_tp = tournament_performance(results_dict,p1_name,col_names_res)
-    p2_tp = tournament_performance(results_dict,p1_name,col_names_res)
+    p1_tp = tournament_performance(results_dict,p1_name,col_names_res,2)
+    p2_tp = tournament_performance(results_dict,p1_name,col_names_res,1)
     print('tp')
     lt = call_time(st,lt)
 
@@ -178,7 +195,7 @@ if __name__=='__main__':
     print('rank_evol')
     lt = call_time(st,lt)
 
-    ratio = ratio_evol(results_dict,col_names_res)
+    ratio = ratio_evol(results_dict,col_names_res,1)
     print('ratio_evol')
     lt = call_time(st,lt)
 

@@ -10,6 +10,9 @@ from data_prep import data_import_db, select_by_name, select_by_name_fetch
 from plotting_functions import historical_h2h, tournament_performance,win_loss_ratio, rank_evol, ratio_evol
 pio.templates.default = "plotly_dark"
 
+
+
+### LOADING DATA
 db_loc = r'tennis_atp.db'
 
 # read players and create view
@@ -21,6 +24,8 @@ players_names = list(df_players['player_name'].unique())
 features_table = ['tourney_date','tourney_name','tourney_points','surface','round','winner_name','winner_rank','loser_name','loser_rank','score']
 df_matches = pd.DataFrame(columns=features_table)
 
+
+### APP STARTS
 # Build your components
 app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 server = app.server
@@ -44,6 +49,7 @@ mytitle = dcc.Markdown(children='# Tennis Brain')
 mytitle2 = dcc.Markdown(children='# Head2Head')
 mytitle3 = dcc.Markdown(children='# Predictor')
 
+                
 mygraph_p1_wl = dcc.Graph(id='p1_wl',figure={})
 mygraph_p2_wl = dcc.Graph(id='p2_wl',figure={})
 mygraph_p1_tp = dcc.Graph(id='p1_tp',figure={})
@@ -53,6 +59,8 @@ mygraph_ratio = dcc.Graph(id='ratio_evol',figure={})
 
 mygraph_h2h = dcc.Graph(id='h2h_graph',figure={})
 mytext_h2h = dcc.Markdown(id='h2h_info',children='')
+
+
 
 mytable_h2h = dash_table.DataTable(
         id='h2h_table',
@@ -90,32 +98,39 @@ app.layout = dbc.Container([
         dbc.Col([dropdown_p1], width=3),dbc.Col([p1_img], width=3),
         dbc.Col([dropdown_p2], width=3),dbc.Col([p2_img], width=3)
     ], justify='center'),
+    
+    # dbc.Row([
+
+    #     dbc.Col([mygraph_p1_wl], width=12),
+    # ], justify='center'),
+
     dbc.Row([
-        dbc.Col([mygraph_p1_wl], width=12),
+        dbc.Col([dbc.Spinner(children=[mygraph_p1_wl], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
+    ], justify='center'),
+
+    dbc.Row([
+        dbc.Col([dbc.Spinner(children=[mygraph_p1_tp], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='center'),
     dbc.Row([
-        dbc.Col([mygraph_p1_tp], width=12),
+        dbc.Col([dbc.Spinner(children=[mygraph_p2_wl], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='center'),
     dbc.Row([
-        dbc.Col([mygraph_p2_wl], width=12),
+        dbc.Col([dbc.Spinner(children=[mygraph_p2_tp], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='center'),
     dbc.Row([
-        dbc.Col([mygraph_p2_tp], width=12),
-    ], justify='center'),
-    dbc.Row([
-        dbc.Col([mytitle2], width=12)
+        dbc.Col([dbc.Spinner(children=[mytitle2], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='left'),
     dbc.Row([
-        dbc.Col([mygraph_rank], width=12)
+        dbc.Col([dbc.Spinner(children=[mygraph_rank], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='center'),
     dbc.Row([
-        dbc.Col([mygraph_ratio], width=12)
+        dbc.Col([dbc.Spinner(children=[mygraph_ratio], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='center'),
     dbc.Row([
-        dbc.Col([mygraph_h2h], width=12)
+        dbc.Col([dbc.Spinner(children=[mygraph_h2h], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='center'),
     dbc.Row([
-        dbc.Col([mytable_h2h], width=8)
+        dbc.Col([dbc.Spinner(children=[mytable_h2h], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='center'),
 
 ], fluid=True)
@@ -125,18 +140,38 @@ app.layout = dbc.Container([
 @app.callback(
     [Output('p1_img', component_property='src'),
     Output('p2_img', component_property='src'),
+    ],
+    [Input('p1_dd', component_property='value'),
+    Input('p2_dd', component_property='value'),
+    ]
+)
+
+def update_pics(p1_name,p2_name):
+
+    p1_img,cols_img = select_by_name_fetch(db_loc,r'database_sql\get_img.sql',p1_name)
+    p2_img,cols_img = select_by_name_fetch(db_loc,r'database_sql\get_img.sql',p2_name)
+
+    index_col = cols_img.index('photo_url')
+
+    p1_img = p1_img[0][index_col]
+    p2_img = p2_img[0][index_col]
+
+    print('photos')
+
+    return [p1_img,p2_img]
+
+@app.callback(
+    [
     Output('p1_wl', component_property='figure'),
     Output('p2_wl', component_property='figure'),
     Output('p1_tp', component_property='figure'),
     Output('p2_tp', component_property='figure'),
     Output('rank_evol', component_property='figure'),
     Output('ratio_evol', component_property='figure'),
-    Output('h2h_graph', component_property='figure'),
-    Output('h2h_table', component_property='data'),
     ],
     [Input('p1_dd', component_property='value'),
     Input('p2_dd', component_property='value'),
-    ]
+    ],
 )
 
 def update_graphs(p1_name,p2_name):
@@ -167,16 +202,33 @@ def update_graphs(p1_name,p2_name):
     p2_wl, df = win_loss_ratio(results_dict,p2_name,col_names_res)
     print('wl')
 
-    p1_tp = tournament_performance(results_dict,p1_name,col_names_res)
-    p2_tp = tournament_performance(results_dict,p1_name,col_names_res)
+
+    n_years = 3
+
+    p1_tp = tournament_performance(results_dict,p1_name,col_names_res,n_years)
+    p2_tp = tournament_performance(results_dict,p2_name,col_names_res,n_years)
     print('tp')
 
-    rank = rank_evol(rankings_dict,col_names_ranks)
+    rank = rank_evol(rankings_dict,col_names_ranks,n_years)
     print('rank_evol')
 
-    ratio = ratio_evol(results_dict,col_names_res)
+    ratio = ratio_evol(results_dict,col_names_res,n_years)
     print('ratio_evol')
 
+    return [p1_wl,p2_wl,p1_tp,p2_tp,rank,ratio]
+
+
+@app.callback(
+    [
+    Output('h2h_graph', component_property='figure'),
+    Output('h2h_table', component_property='data'),
+    ],
+    [Input('p1_dd', component_property='value'),
+    Input('p2_dd', component_property='value'),
+    ],
+)
+
+def update_h2h(p1_name,p2_name):
     # get h2h matches
     list_names = (p1_name,p2_name)
     h2h,col_names_h2h = select_by_name_fetch(db_loc,r'database_sql\get_h2h.sql',list_names)
@@ -186,19 +238,7 @@ def update_graphs(p1_name,p2_name):
     h2h_table = h2h_table[col_names_h2h].to_dict('records')
     print('h2h_tbl')
 
-    p1_img,cols_img = select_by_name_fetch(db_loc,r'database_sql\get_img.sql',p1_name)
-    p2_img,cols_img = select_by_name_fetch(db_loc,r'database_sql\get_img.sql',p2_name)
-
-    index_col = cols_img.index('photo_url')
-
-    p1_img = p1_img[0][index_col]
-    p2_img = p2_img[0][index_col]
-
-    print('photos')
-
-    return [p1_img,p2_img,p1_wl,p2_wl,p1_tp,p2_tp,rank,ratio,h2h_plot,h2h_table]
-
-
+    return [h2h_plot,h2h_table]
 # Run app
 if __name__=='__main__':
     app.run_server(port=8051,debug=False, dev_tools_silence_routes_logging=True)   
