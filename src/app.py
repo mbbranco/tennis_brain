@@ -6,7 +6,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.io as pio
 
-from data_prep import data_import_db, select_by_name, select_by_name_fetch
+from data_prep import data_import_db, select_by_name_fetch
 from plotting_functions import historical_h2h, tournament_performance,win_loss_ratio, rank_evol, ratio_evol
 pio.templates.default = "plotly_dark"
 
@@ -85,7 +85,7 @@ dropdown_p1 = html.Div(dcc.Dropdown(options=list(players_names),
                         clearable=False, id='p1_dd',placeholder='Select a Player'))
 
 dropdown_p2 = html.Div(dcc.Dropdown(options=list(players_names),
-                        value='Rafael Nadal',  # initial value displayed when page first loads
+                        value='Novak Djokovic',  # initial value displayed when page first loads
                         clearable=False, id='p2_dd',placeholder='Select a Player'))
 
 
@@ -98,16 +98,9 @@ app.layout = dbc.Container([
         dbc.Col([dropdown_p1], width=3),dbc.Col([p1_img], width=3),
         dbc.Col([dropdown_p2], width=3),dbc.Col([p2_img], width=3)
     ], justify='center'),
-    
-    # dbc.Row([
-
-    #     dbc.Col([mygraph_p1_wl], width=12),
-    # ], justify='center'),
-
     dbc.Row([
         dbc.Col([dbc.Spinner(children=[mygraph_p1_wl], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='center'),
-
     dbc.Row([
         dbc.Col([dbc.Spinner(children=[mygraph_p1_tp], size="lg", color="primary", type="border", fullscreen=False,)],width=12),
     ], justify='center'),
@@ -201,7 +194,6 @@ def update_graphs(p1_name,p2_name):
     p1_wl, df = win_loss_ratio(results_dict,p1_name,col_names_res)
     p2_wl, df = win_loss_ratio(results_dict,p2_name,col_names_res)
     print('wl')
-
 
     n_years = 3
 

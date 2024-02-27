@@ -118,8 +118,8 @@ def rank_evol(rankings_dict,col_names,n_years=None):
 def historical_h2h(rows,cols,p1_name,p2_name):
 
     df = pd.DataFrame(rows,columns=cols)
-    p1_wins = df[(df['winner_name']==p1_name)|(df['loser_name']==p1_name)]['win_p1'].sum()
-    p2_wins = df[(df['winner_name']==p2_name)|(df['loser_name']==p2_name)]['win_p2'].sum()
+    p1_wins = sum(df['winner_name']==p1_name)
+    p2_wins = sum(df['winner_name']==p2_name)
 
     nr_matches = df.shape[0]
 
@@ -151,53 +151,53 @@ def call_time(st,lt):
 if __name__=='__main__':
     db_loc = 'tennis_atp.db'
     p1_name = 'Carlos Alcaraz'
-    p2_name = 'Novak Djokovic'
+    p2_name = 'Stefanos Tsitsipas'
     st = time.time()
     lt = call_time(st,st)
 
-    print('start')
-    # get matches for player by player name and calculate KPIs
-    p1_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p1_name)
-    p2_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p2_name)
-    results_dict = {p1_name:p1_results,p2_name:p2_results}
+    # print('start')
+    # # get matches for player by player name and calculate KPIs
+    # p1_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p1_name)
+    # p2_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p2_name)
+    # results_dict = {p1_name:p1_results,p2_name:p2_results}
 
-    print('results')    
-    lt = call_time(lt,st)
+    # print('results')    
+    # lt = call_time(lt,st)
 
-    p1, col_names = select_by_name_fetch(db_loc,r'database_sql\get_player_info.sql',p1_name)
-    p2, col_names = select_by_name_fetch(db_loc,r'database_sql\get_player_info.sql',p2_name)
-    print('player_info')
-    lt = call_time(st,lt)
+    # p1, col_names = select_by_name_fetch(db_loc,r'database_sql\get_player_info.sql',p1_name)
+    # p2, col_names = select_by_name_fetch(db_loc,r'database_sql\get_player_info.sql',p2_name)
+    # print('player_info')
+    # lt = call_time(st,lt)
 
-    index_col = col_names.index('player_id')
+    # index_col = col_names.index('player_id')
 
-    p1_id = p1[0][index_col]
-    p2_id = p2[0][index_col]
+    # p1_id = p1[0][index_col]
+    # p2_id = p2[0][index_col]
 
     # get rankings for player by player name and calculate KPIs
-    p1_ranks,col_names_ranks = select_by_name_fetch(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
-    p2_ranks,col_names_ranks = select_by_name_fetch(db_loc,r'database_sql\get_rank_evol.sql',p2_id)
-    rankings_dict = {p1_name:p1_ranks,p2_name:p2_ranks}
-    print('ranks')
-    lt = call_time(st,lt) 
+    # p1_ranks,col_names_ranks = select_by_name_fetch(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
+    # p2_ranks,col_names_ranks = select_by_name_fetch(db_loc,r'database_sql\get_rank_evol.sql',p2_id)
+    # rankings_dict = {p1_name:p1_ranks,p2_name:p2_ranks}
+    # print('ranks')
+    # lt = call_time(st,lt) 
     
-    p1_wl,df = win_loss_ratio(results_dict,p1_name,col_names_res)
-    p2_wl,df = win_loss_ratio(results_dict,p2_name,col_names_res)
-    print('wl')
-    lt = call_time(st,lt)
+    # p1_wl,df = win_loss_ratio(results_dict,p1_name,col_names_res)
+    # p2_wl,df = win_loss_ratio(results_dict,p2_name,col_names_res)
+    # print('wl')
+    # lt = call_time(st,lt)
 
-    p1_tp = tournament_performance(results_dict,p1_name,col_names_res,2)
-    p2_tp = tournament_performance(results_dict,p1_name,col_names_res,1)
-    print('tp')
-    lt = call_time(st,lt)
+    # p1_tp = tournament_performance(results_dict,p1_name,col_names_res,2)
+    # p2_tp = tournament_performance(results_dict,p1_name,col_names_res,1)
+    # print('tp')
+    # lt = call_time(st,lt)
 
-    rank = rank_evol(rankings_dict,col_names_ranks)
-    print('rank_evol')
-    lt = call_time(st,lt)
+    # rank = rank_evol(rankings_dict,col_names_ranks)
+    # print('rank_evol')
+    # lt = call_time(st,lt)
 
-    ratio = ratio_evol(results_dict,col_names_res,1)
-    print('ratio_evol')
-    lt = call_time(st,lt)
+    # ratio = ratio_evol(results_dict,col_names_res,1)
+    # print('ratio_evol')
+    # lt = call_time(st,lt)
 
     # get h2h matches
     list_names = (p1_name,p2_name)
@@ -222,10 +222,11 @@ if __name__=='__main__':
     lt = call_time(st,lt)
 
     # show plots
-    p1_wl.show()
-    p2_wl.show()
-    p1_tp.show()
-    p2_tp.show()
-    rank.show()
-    ratio.show()
+    # p1_wl.show()
+    # p2_wl.show()
+    # p1_tp.show()
+    # p2_tp.show()
+    # rank.show()
+    # ratio.show()
     h2h_plot.show()
+    print(h2h_table)
