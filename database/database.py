@@ -20,7 +20,6 @@ def create_tbl_folder_csv(conn, paths, table_name):
     print(df.head())
 
     df.to_sql(table_name, conn, if_exists='replace', index=False)
-    # df.to_sql(table_name, conn, if_exists='replace', index=False,dtype={'id': 'INTEGER PRIMARY KEY AUTOINCREMENT'})
 
 def create_connection(db_file):
     """ create a database connection to the SQLite database
@@ -37,7 +36,7 @@ def create_connection(db_file):
     return conn
 
 def main_internal_db():
-    database = r"tennis_atp.db"
+    database = r"../src/tennis_atp.db"
     data_folder = r"tennis_atp"
 
     # create a database connection
@@ -54,7 +53,9 @@ def main_internal_db():
 
         paths = [data_folder + r"\atp_players*.csv"]
         create_tbl_folder_csv(conn,paths,'players')
-
+    
+    paths = [r"sql_files\*.sql"]
+    execute_sql(conn,paths)
 
 def create_connection_external():
     conn = None
@@ -74,8 +75,6 @@ def create_connection_external():
 
     return conn_engine,conn_db
 
-
-
 def execute_sql(conn,paths):
 
     cur = conn.cursor()
@@ -83,11 +82,12 @@ def execute_sql(conn,paths):
     for p in paths:
         data_folder = glob.glob(p)
         for sql_file in data_folder:
+            print(sql_file)
+
             with open(sql_file, 'r') as fd:
                 command = fd.read().format()
-
             print('start exec')
-            cur.execute(command)  
+            cur.executescript(command)  
             print('finish exec')
 
     conn.close()
@@ -95,24 +95,9 @@ def execute_sql(conn,paths):
 def main_external_db():
     # create a database connection
     conn_engine,conn_db = create_connection_external()
- 
-    # paths = ["tennis_atp\atp_matches_2*.csv"]
-    # create_tbl_folder_csv(conn_engine,paths,'matches')
-
-    # path_1 = r"tennis_atp\atp_rankings_1*.csv"
-    # path_2 = r"tennis_atp\atp_rankings_2*.csv"
-    # paths = [path_1,path_2]
-    # create_tbl_folder_csv(conn_engine,paths,'rankings')
-
-    # paths = [r"tennis_atp\atp_players*.csv"]
-    # create_tbl_folder_csv(conn_engine,paths,'players')
-
-    # df_photos_url = get_photo_url()
-    # df_photos_url.to_sql('photos', conn_engine, if_exists='replace', index=False)
-
     paths = [r"sql_files\*.sql"]
     execute_sql(conn_db,paths)
 
 if __name__ == '__main__':
-    # main_internal_db()
-    main_external_db()
+    main_internal_db()
+    # main_external_db()

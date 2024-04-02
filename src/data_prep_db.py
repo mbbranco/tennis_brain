@@ -2,6 +2,7 @@ import pandas as pd
 import sqlite3
 from sqlite3 import Error
 
+
 def create_connection(db_file):
     """ create a database connection to the SQLite database
         specified by the db_file
@@ -68,6 +69,24 @@ def data_import_db(db,sql):
 
     return df
 
+
+def data_import_db_simple(db,sql):
+    # create a database connection
+    conn = create_connection(db)
+
+    cur = conn.cursor()
+
+
+    command = sql.split(";")
+    command = [c for c in command if c!=""]
+
+    for c in command:
+        cur.execute(c)
+
+    df = pd.read_sql(command[-1], conn)
+
+    return df
+
 if __name__=='__main__':
     db_loc = r'tennis_atp.db'
 
@@ -81,36 +100,8 @@ if __name__=='__main__':
 
     print('player_info')
 
-    # p1_id = p1['player_id'].iloc[0]
-    # p2_id = p2['player_id'].iloc[0]
+    p1_id = p1['player_id'].iloc[0]
+    p2_id = p2['player_id'].iloc[0]
 
-    # p1_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
-    # print(p1_ranks)
-
-    # # start by reading matches
-    # df_temp = data_import_db(db_loc,r'..\database\matches_create.sql')
-
-    # # transform matches and return view
-    # df_matches = prep_matches(df_temp,db_loc,r'..\database\matches_view.sql')
-
-    # # read players and create view
-    # df_players = data_import_db(db_loc,r'..\database\players.sql')
-
-    # # read rankings and create view
-    # df_rankings = data_import_db(db_loc,r'..\database\rankings.sql')
-
-    # # # get tournament info by tournaments name
-    # # tournament = select_by_name(db_loc,r'..\database\get_tournament_info.sql','Wimbledon')
-    # # print(tournament)
-
-    # # # get player info by players name
-    # # player = select_by_name(db_loc,r'..\database\get_player_info.sql','Carlos Alcaraz')
-    # # print(player)
-
-    # # # get last rank available by player name
-    # # rank = select_by_name(db_loc,r'..\database\get_last_rank.sql','Carlos Alcaraz')
-    # # print(rank)
-
-    # # # get matches for player by player name and calculate KPIs
-    # # results = select_by_name(db_loc,r'..\database\player_matches_kpis.sql','Carlos Alcaraz')
-    # # print(results)
+    p1_ranks = select_by_name(db_loc,r'database_sql\get_rank_evol.sql',p1_id)
+    print(p1_ranks)

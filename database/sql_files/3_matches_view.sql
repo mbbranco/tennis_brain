@@ -52,9 +52,6 @@ SELECT
     winner_rank_points,
     loser_rank,
     loser_rank_points,
-    winner_sets,
-    loser_sets,
-    score_quality,
     SUBSTR(tourney_date, 1, 4) || '-' || substr(tourney_date, 5, 2) || '-' || substr(tourney_date, 7, 2) as tourney_date,
     CAST(SUBSTR(tourney_date, 1, 4) AS INTEGER) as tourney_year,
     CASE
