@@ -6,7 +6,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.io as pio
 
-from data_prep import data_import_db, select_by_name_fetch
+from data_prep_db import data_import_db, select_by_name_fetch
 from plotting_functions import historical_h2h, tournament_performance,win_loss_ratio, rank_evol, ratio_evol
 pio.templates.default = "plotly_dark"
 
@@ -169,7 +169,6 @@ def update_pics(p1_name,p2_name):
 
 def update_graphs(p1_name,p2_name):
     print('start')
-    # get matches for player by player name and calculate KPIs
     # get matches for player by player name and calculate KPIs
     p1_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p1_name)
     p2_results, col_names_res = select_by_name_fetch(db_loc,r'database_sql\player_matches_kpis.sql',p2_name)

@@ -1,22 +1,29 @@
 from bs4 import BeautifulSoup
 from datetime import date,timedelta
 import urllib.request
+from urllib import parse
+
+import pandas as pd
 
 def get_img_link(link):
     opener = urllib.request.build_opener()
     opener.addheaders = [('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1941.0 Safari/537.36')]
     urllib.request.install_opener(opener)
+    try:
+        info = opener.open(link).read()
+    except:
+        return ''
+    else:
+        soup = BeautifulSoup(info, "html.parser")
+        i = soup.find(class_='player_image')
 
-    info = opener.open(link).read()
-    soup = BeautifulSoup(info, "html.parser")
-    i = soup.find(class_='player_image')
+        if i is None:
+            i = soup.find(class_=' player_image--headshot')
 
-    if i is None:
-        i = soup.find(class_=' player_image--headshot')
+        img_link = 'https://www.atptour.com' + i.img['src']
 
-    img_link = 'https://www.atptour.com' + i.img['src']
 
-    return img_link
+        return img_link
 
 def get_current_ranking_photo(p1_name,p2_name):
     players,links = get_updated_ranking()
@@ -32,6 +39,18 @@ def get_current_ranking_photo(p1_name,p2_name):
 
     return p1_link, p2_link
 
+def get_photo_url():
+    players,links = get_updated_ranking()
+    photos_dict = {}
+
+    for i,l in enumerate(links):
+        p = players[i]
+        print(p,l)
+        photos_dict[p] = get_img_link(l)
+
+    df_photos = pd.DataFrame(photos_dict.items(),columns=['player_name','photo_url'])
+    return df_photos
+
 
 def get_updated_ranking():
     opener = urllib.request.build_opener()
@@ -40,7 +59,7 @@ def get_updated_ranking():
 
     players_ranking = []
     links_ranking = []
-    rank_range = ['0-5000']
+    rank_range = ['0-1000']
     for r in rank_range:
         url = f'https://www.atptour.com/en/rankings/singles?rankRange={r}'
         info = opener.open(url).read()
@@ -70,6 +89,6 @@ def scrape_it(soup):
 if __name__=='__main__':
     p1_name = "Cameron Norrie"
     p2_name = "Carlos Alcaraz"
-
-    p1_link,p2_link = get_current_ranking_photo(p1_name,p2_name)
-    print(p1_link,p2_link)
+    get_photo_url()
+    # p1_link,p2_link = get_current_ranking_photo(p1_name,p2_name)
+    # print(p1_link,p2_link)

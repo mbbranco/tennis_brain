@@ -4,7 +4,7 @@ import plotly.express as px
 import numpy as np
 import pandas as pd
 # from data_prep import data_import, get_tournaments_info, get_players_info, get_player_id_by_name, get_kpis
-from data_prep import select_by_name,select_by_name_fetch
+from data_prep_db import select_by_name,select_by_name_fetch
 
 def win_loss_ratio(dict,k,cols):
     vals = dict[k]

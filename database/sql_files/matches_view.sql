@@ -8,7 +8,7 @@ SELECT
     surface,
     draw_size,
     tourney_level,
-    tourney_date as 'tourney_date_int',
+    tourney_date as tourney_date_int,
     match_num,
     winner_id,
     winner_seed,
@@ -55,14 +55,14 @@ SELECT
     winner_sets,
     loser_sets,
     score_quality,
-    SUBSTR(tourney_date, 1, 4) || '-' || substr(tourney_date, 5, 2) || '-' || substr(tourney_date, 7, 2) as 'tourney_date',
-    CAST(SUBSTR(tourney_date, 1, 4) AS INTEGER) as 'tourney_year',
+    SUBSTR(tourney_date, 1, 4) || '-' || substr(tourney_date, 5, 2) || '-' || substr(tourney_date, 7, 2) as tourney_date,
+    CAST(SUBSTR(tourney_date, 1, 4) AS INTEGER) as tourney_year,
     CASE
         WHEN tourney_level='A' THEN 250
         WHEN tourney_level = 'M' THEN 1000
         WHEN tourney_level = 'G' THEN 2000 
         ELSE 0
-    END as 'tourney_points',
+    END as tourney_points,
     CASE
         WHEN round ='RR' THEN 7
         WHEN round = 'R128' THEN 6
@@ -73,7 +73,7 @@ SELECT
         WHEN round = 'SF' THEN 1
         WHEN round = 'F' THEN 0
         ELSE 7
-    END as 'round_level'
+    END as round_level
 FROM matches
 WHERE 
     tourney_date >= 20100101
